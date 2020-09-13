@@ -70,7 +70,10 @@ fun Config.Companion.fromFile(file: File): Config {
         else -> throw IllegalArgumentException("unsupported file format: $file")
     }
 
-    return mapper.readTree(file).toValue()
+    return file.readText()
+        .takeIf { it.isNotBlank() }
+        ?.let { mapper.readTree(it).toValue<Config>() }
+        ?: throw IllegalArgumentException("file is empty: $file")
 }
 
 @ExperimentalCoroutinesApi

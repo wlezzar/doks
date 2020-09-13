@@ -6,7 +6,6 @@ import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.wlezzar.doks.utils.jsonObject
 import com.github.wlezzar.doks.utils.toJsonNode
@@ -19,12 +18,15 @@ import java.io.File
  */
 @ExperimentalCoroutinesApi
 class Doks : NoOpCliktCommand(name = "doks") {
-    private val configPath: File
-        by option("-c", "--config", envvar = "DOKS_CONFIG_PATH")
-            .file(mustExist = true, canBeDir = false)
-            .required()
+    private val configFile: File?
+        by option("-c", "--config", envvar = "DOKS_CONFIG_FILE").file(mustExist = true, canBeDir = false)
 
-    private val config: Config by lazy { Config.fromFile(configPath) }
+    private val config: Config by lazy {
+        val file = configFile
+            ?: File("${System.getenv("HOME") ?: error("couldn't locate user home")}/.doks/config.yml")
+
+        Config.fromFile(file)
+    }
 
     private fun <T> useSearch(action: suspend (SearchEngine) -> T): T = runBlocking {
         config.engine.resolve().use { action(it) }
