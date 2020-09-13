@@ -1,0 +1,17 @@
+package com.github.wlezzar.doks.utils
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+
+val json = ObjectMapper().findAndRegisterModules()
+val yaml = ObjectMapper(YAMLFactory()).findAndRegisterModules()
+
+fun jsonObject(action: ObjectNode.() -> Unit): ObjectNode = json.createObjectNode().apply(action)
+fun jsonArray(action: ArrayNode.() -> Unit): ArrayNode = json.createArrayNode().apply(action)
+
+fun Any.toJsonNode(): JsonNode = json.valueToTree(this)
+
+inline fun <reified T> JsonNode.toValue(): T = json.treeToValue(this, T::class.java)
