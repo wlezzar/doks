@@ -1,4 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.net.URI
 
 /*
@@ -73,7 +72,7 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClassName = "com.adevinta.serenity.docs.MainKt"
+    mainClassName = "com.github.wlezzar.doks.MainKt"
 }
 
 // docker tasks
@@ -95,7 +94,7 @@ tasks {
         )
     }
 
-    val dockerPush by registering(org.gradle.api.tasks.Exec::class) {
+    register("dockerPush", org.gradle.api.tasks.Exec::class) {
         dependsOn(dockerBuild)
 
         executable("docker")

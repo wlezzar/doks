@@ -32,7 +32,7 @@ class GithubSource(
                 .cloneRepository()
                 .setURI("$transport@$server:$repository.git")
                 .setDirectory(tmpClone.toFile())
-                .also { logger.error("[$repository] cloning into '$tmpClone'") }
+                .also { logger.info("[$repository] cloning into '$tmpClone'") }
                 .call()
 
             val base = folder?.let { tmpClone.resolve(folder) } ?: tmpClone

@@ -24,11 +24,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.sendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
@@ -197,21 +194,4 @@ private fun GSuite.fetchDocs(folder: String?): Sequence<Document> = sequence {
 @ExperimentalCoroutinesApi
 fun GSuite.fetchDocsAsFlow(folder: String?): Flow<Document> = channelFlow {
     launch(Dispatchers.IO) { fetchDocs(folder).forEach { sendBlocking(it) } }
-}
-
-
-@ExperimentalCoroutinesApi
-fun main(args: Array<String>) {
-    // Build a new authorized API client service.
-    val gsuite = GSuite(
-        secretFile = File("/home/wlezzar/Downloads/client_secret_331706208033-p17smg17ehkmdhrqj7t97tug1mbavi6h.apps.googleusercontent.com.json"),
-        userId = "doks2"
-    )
-
-    runBlocking {
-        gsuite
-            .fetchDocsAsFlow(folder = null)
-            .take(10)
-            .collect { println(it) }
-    }
 }

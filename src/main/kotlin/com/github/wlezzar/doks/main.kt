@@ -6,4 +6,4 @@ package com.github.wlezzar.doks
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 @ExperimentalCoroutinesApi
-fun main(args: Array<String>): Unit = Docx().main(args)
+fun main(args: Array<String>): Unit = Doks().main(args)

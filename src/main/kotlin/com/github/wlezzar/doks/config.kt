@@ -1,5 +1,7 @@
 package com.github.wlezzar.doks
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.github.wlezzar.doks.search.ElasticEngine
 import com.github.wlezzar.doks.search.LuceneSearchEngine
 import com.github.wlezzar.doks.sources.FileSystemSource
@@ -7,9 +9,8 @@ import com.github.wlezzar.doks.sources.GSuite
 import com.github.wlezzar.doks.sources.GithubSource
 import com.github.wlezzar.doks.sources.GoogleDocs
 import com.github.wlezzar.doks.utils.json
+import com.github.wlezzar.doks.utils.toValue
 import com.github.wlezzar.doks.utils.yaml
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.apache.http.HttpHost
 import java.io.File
@@ -28,7 +29,8 @@ data class Config(
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "source")
 @JsonSubTypes(
     JsonSubTypes.Type(value = SourceConfig.Github::class, name = "github"),
-    JsonSubTypes.Type(value = SourceConfig.FileSystem::class, name = "fs")
+    JsonSubTypes.Type(value = SourceConfig.FileSystem::class, name = "fs"),
+    JsonSubTypes.Type(value = SourceConfig.GoogleDrive::class, name = "googleDrive"),
 )
 sealed class SourceConfig {
     data class Github(
