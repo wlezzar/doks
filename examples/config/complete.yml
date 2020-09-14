@@ -11,6 +11,10 @@ sources:
   - source: github
     repositories:
       from: api
+      # Override with your github enterprise v3 endpoint (default uses https://api.github.com)
+      endpoint: https://comp.com/api/v3
+      # Authenticate with OAuth token
+      tokenFile: /tmp/my-oauth-token.txt
       starredBy:
         - wlezzar
       # you can use any github repository search query

@@ -12,10 +12,10 @@ Installation procedure can be found at [docs/install.md](https://github.com/wlez
 Select a config file to be used with `doks` (by default: `$HOME/.doks/config/default.yml`):
 
 ```bash
-❯ export DOKS_CONFIG_FILE=examples/simple.yml
+❯ export DOKS_CONFIG_FILE=examples/config/simple.yml
 ```
 
-Here we are using a simple config file from [examples/simple.yml](https://github.com/wlezzar/doks/blob/master/examples/simple.yml).
+Here we are using a simple config file from [examples/config/simple.yml](https://github.com/wlezzar/doks/blob/master/examples/config/simple.yml).
 
 Next step is to index the documents referenced in the config file to make them searchable:
 
