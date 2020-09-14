@@ -20,6 +20,7 @@ import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.index.IndexWriterConfig
 import org.apache.lucene.index.IndexableField
+import org.apache.lucene.index.Term
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.Query
@@ -47,6 +48,7 @@ class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAna
 
     override suspend fun index(documents: Flow<Document>) = documents.collect { document ->
         indexingChannel.index(
+            document.id,
             listOf(
                 StringField("id", document.id, Field.Store.YES),
                 StringField("link", document.link, Field.Store.YES),
@@ -111,7 +113,7 @@ private fun LuceneDocument.fragments(fieldName: String, query: Query, analyzer: 
 private fun LuceneDocument.getRequiredField(name: String) =
     getField(name) ?: throw IllegalArgumentException("field not found: $name")
 
-data class IndexSuspendingRequest(val doc: Iterable<IndexableField>, val completer: CompletableDeferred<Long>)
+data class IndexSuspendingRequest(val id: String, val doc: Iterable<IndexableField>, val completer: CompletableDeferred<Long>)
 
 fun IndexWriter.launchThread(): SendChannel<IndexSuspendingRequest> {
     val channel = Channel<IndexSuspendingRequest>()
@@ -119,7 +121,12 @@ fun IndexWriter.launchThread(): SendChannel<IndexSuspendingRequest> {
         runBlocking {
             for (req in channel) {
                 try {
-                    req.completer.complete(addDocument(req.doc))
+                    req.completer.complete(
+                        updateDocument(
+                            Term("_id", req.id),
+                            req.doc + StringField("_id", req.id, Field.Store.YES)
+                        )
+                    )
                 } catch (err: Exception) {
                     req.completer.completeExceptionally(err)
                 }
@@ -129,9 +136,9 @@ fun IndexWriter.launchThread(): SendChannel<IndexSuspendingRequest> {
     return channel
 }
 
-suspend fun SendChannel<IndexSuspendingRequest>.index(doc: Iterable<IndexableField>): Long =
+suspend fun SendChannel<IndexSuspendingRequest>.index(id: String, doc: Iterable<IndexableField>): Long =
     CompletableDeferred<Long>()
-        .apply { send(IndexSuspendingRequest(doc, this)) }
+        .apply { send(IndexSuspendingRequest(id, doc, this)) }
         .await()
 
 private suspend fun <T> ExecutorService.submitSuspending(action: () -> T): T =

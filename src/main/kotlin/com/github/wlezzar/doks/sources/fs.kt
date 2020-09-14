@@ -13,24 +13,26 @@ import java.nio.file.Path
 
 @ExperimentalCoroutinesApi
 class FileSystemSource(
-    private val path: Path,
+    private val paths: List<Path>,
     private val filter: (Path) -> Boolean = { "$it".endsWith(".md") }
 ) : DocumentSource {
 
     override fun fetch(): Flow<Document> = channelFlow {
-        launch(Dispatchers.IO) {
-            Files
-                .walk(path)
-                .filter(filter)
-                .map {
-                    Document(
-                        id = "$it",
-                        type = DocumentType.Markdown,
-                        title = "${it.fileName}",
-                        link = "$it",
-                        content = it.toFile().readText()
-                    )
-                }
+        for (path in paths) {
+            launch(Dispatchers.IO) {
+                Files
+                    .walk(path)
+                    .filter(filter)
+                    .map {
+                        Document(
+                            id = "$it",
+                            type = DocumentType.Markdown,
+                            title = "${it.fileName}",
+                            link = "$it",
+                            content = it.toFile().readText()
+                        )
+                    }
+            }
         }
     }
 }

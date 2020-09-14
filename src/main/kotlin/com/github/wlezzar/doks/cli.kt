@@ -5,42 +5,54 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.defaultLazy
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.wlezzar.doks.utils.jsonObject
 import com.github.wlezzar.doks.utils.toJsonNode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
 /**
  * CLI implementation.
  */
+@FlowPreview
 @ExperimentalCoroutinesApi
 class Doks : NoOpCliktCommand(name = "doks") {
+    private val doksHome
+        by option("--home", envvar = "DOKS_HOME", hidden = true)
+            .defaultLazy { "${System.getenv("HOME") ?: error("couldn't locate user home")}/.doks" }
+
+    private val namespace: String
+        by option("-n", "--namespace", envvar = "DOKS_NAMESPACE").default("default")
+
     private val configFile: File?
         by option("-c", "--config", envvar = "DOKS_CONFIG_FILE").file(mustExist = true, canBeDir = false)
 
     private val config: Config by lazy {
         val file = configFile
-            ?: File("${System.getenv("HOME") ?: error("couldn't locate user home")}/.doks/config.yml")
+            ?: File("${doksHome}/config/${namespace}.yml")
 
         Config.fromFile(file)
     }
 
     private fun <T> useSearch(action: suspend (SearchEngine) -> T): T = runBlocking {
-        config.engine.resolve().use { action(it) }
+        config.engine.resolve(home = doksHome, namespace = namespace).use { action(it) }
     }
 
     init {
         subcommands(Index(), Search(), Purge())
     }
 
+    @FlowPreview
     @ExperimentalCoroutinesApi
     inner class Index : CliktCommand(name = "index", help = "index all documentation sources into the search engine") {
         override fun run() = this@Doks.useSearch { search ->
-            this@Doks.config.sources.asSequence().flatMap { it.resolve() }.forEach {
-                search.index(it.fetch())
+            this@Doks.config.sources.asSequence().forEach {
+                search.index(it.resolve().fetch())
             }
         }
     }

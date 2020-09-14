@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.net.URI
 
 /*
@@ -49,11 +50,9 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:5.8.1.202007141445-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:5.8.1.202007141445-r")
 
-//    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.1")
     implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:6.5.4")
-//
-//    // For lucen search engine implementation
-//    implementation("org.apache.lucene:lucene-core:7.5.0")
+
+    implementation("org.kohsuke:github-api:1.116")
 
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.11.2")
@@ -94,10 +93,20 @@ tasks {
         )
     }
 
-    register("dockerPush", org.gradle.api.tasks.Exec::class) {
+    register("dockerPush", Exec::class) {
         dependsOn(dockerBuild)
 
         executable("docker")
         args("push", dockerBuild.get().extra["image"])
     }
+
+    withType<KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = "11"
+            javaParameters = true
+        }
+    }
+
+    named<Zip>("distZip") { archiveFileName.set("${project.name}.zip") }
+    named<Tar>("distTar") { archiveFileName.set("${project.name}.tar") }
 }
