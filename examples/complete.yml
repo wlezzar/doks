@@ -1,0 +1,36 @@
+sources:
+
+  - source: github
+    repositories:
+      from: list
+      list:
+        - name: wlezzar/jtab
+        - name: wlezzar/doks
+        - name: adevinta/zoe
+
+  - source: github
+    repositories:
+      from: api
+      starredBy:
+        - wlezzar
+      # you can use any github repository search query
+      # cf. https://docs.github.com/en/github/searching-for-information-on-github/searching-for-repositories
+      search: "kubernetes in:readme"
+
+  ## Google drive documents source: scans google drive and uses scans google docs.
+  - source: googleDrive
+    secretFile: /path/to/secret
+
+# Search engine to use (default is lucene)
+engine:
+  use: lucene
+  # To use another path than the default one (~/.doks/storage/lucene/{namespace})
+  path: /tmp/lucene/something
+
+# To use Elasticsearch instead, uncomment the following lines
+# engine:
+#   use: elasticsearch
+#   index: "index"
+#   host: "localhost"
+#   port: "9200"
+#   scheme: "http"

@@ -66,7 +66,7 @@ sealed class GithubRepositoriesConfig {
 
 data class GithubRepo(val name: String, val folder: String? = null, val branch: String = "master")
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "use")
 @JsonSubTypes(
     JsonSubTypes.Type(value = SearchEngineConfig.ElasticSearch::class, name = "elasticsearch"),
     JsonSubTypes.Type(value = SearchEngineConfig.Lucene::class, name = "lucene"),

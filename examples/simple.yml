@@ -13,4 +13,4 @@ sources:
 
 # Search engine to use (default is lucene)
 engine:
-  type: lucene
+  use: lucene
