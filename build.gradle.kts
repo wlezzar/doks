@@ -11,6 +11,7 @@ plugins {
     // Apply the Kotlin JVM plugin to add support for Kotlin.
     id("org.jetbrains.kotlin.jvm") version "1.4.0"
     id("com.palantir.git-version") version "0.12.3"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
 
     // Apply the application plugin to add support for building a CLI application.
     application
@@ -107,6 +108,6 @@ tasks {
         }
     }
 
-    named<Zip>("distZip") { archiveFileName.set("${project.name}.zip") }
-    named<Tar>("distTar") { archiveFileName.set("${project.name}.tar") }
+    named<Zip>("shadowDistZip") { archiveFileName.set("${project.name}.zip") }
+    named<Tar>("shadowDistTar") { archiveFileName.set("${project.name}.tar") }
 }
