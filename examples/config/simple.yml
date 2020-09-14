@@ -6,6 +6,9 @@ sources:
         - name: wlezzar/jtab
         - name: wlezzar/doks
         - name: adevinta/zoe
+      # By default, all markdown files are indexed (.md). You can choose what files to include instead
+      # include:
+      #   - '^.*\.txt$'
 
   ## Google drive documents source: scans google drive and uses scans google docs.
   # - source: googleDrive

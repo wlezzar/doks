@@ -12,7 +12,8 @@ import java.nio.file.Path
 
 class FileSystemSource(
     private val paths: List<Path>,
-    private val filter: (Path) -> Boolean = { "$it".endsWith(".md") }
+    private val include: List<Regex>,
+    private val exclude: List<Regex>,
 ) : DocumentSource {
 
     override fun fetch(): Flow<Document> = channelFlow {
@@ -20,7 +21,9 @@ class FileSystemSource(
             launch(Dispatchers.IO) {
                 Files
                     .walk(path)
-                    .filter(filter)
+                    .filter { path ->
+                        include.all { "$path".matches(it) } && exclude.none { "$path".matches(it) }
+                    }
                     .map {
                         Document(
                             id = "$it",

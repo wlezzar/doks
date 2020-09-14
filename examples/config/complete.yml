@@ -1,11 +1,20 @@
 sources:
 
   - source: github
+    ## By default, all markdown files are indexed (.md). You can choose what files to include instead
+    # include:
+    #   - '^.*\.txt$'
+    ## You can also exclude files
+    # exclude:
+    #   - '^.*\.hello$'
     repositories:
       from: list
       list:
         - name: wlezzar/jtab
         - name: wlezzar/doks
+          # you can also override the includes / excludes at the repository level
+          include: ['^.*\.txt$']
+          exclude: ['^.*\.hello$']
         - name: adevinta/zoe
 
   - source: github
@@ -24,6 +33,12 @@ sources:
   ## Google drive documents source: scans google drive and uses scans google docs.
   - source: googleDrive
     secretFile: /path/to/secret
+    # you can optionally select a drive ID
+    driveId: 13211ZZAZDS21
+    # you can limit the search to a repository
+    folders: ["AZAZDA", "121ZADA"]
+    # you can use a search query to limit the result (https://developers.google.com/drive/api/v3/search-files)
+    searchQuery: "query_term operator values"
 
 # Search engine to use (default is lucene)
 engine:

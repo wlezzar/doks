@@ -20,7 +20,6 @@ import com.google.api.services.docs.v1.model.StructuralElement
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.sendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.merge
@@ -33,8 +32,17 @@ import com.google.api.services.docs.v1.model.Document as GoogleDoc
 /**
  * Fetches documents from google drive.
  */
-class GoogleDocs(private val gSuite: GSuite, private val folders: List<String>) : DocumentSource {
-    override fun fetch(): Flow<Document> = folders.map { gSuite.fetchDocsAsFlow(folder = it) }.merge()
+class GoogleDocs(
+    secretFile: File,
+    private val searchQuery: String?,
+    private val driveId: String?,
+    private val folders: List<String>
+) : DocumentSource {
+
+    private val gSuite = GSuite(secretFile = secretFile, userId = "doks")
+
+    override fun fetch(): Flow<Document> =
+        folders.map { gSuite.fetchDocsAsFlow(driveId = driveId, query = searchQuery, folder = it) }.merge()
 }
 
 private val jsonFactory: JsonFactory = JacksonFactory.getDefaultInstance()
@@ -143,7 +151,7 @@ class GSuite(val docs: Docs, val drive: Drive) {
     )
 }
 
-private fun GSuite.fetchDocs(folder: String?): Sequence<Document> = sequence {
+private fun GSuite.fetchDocs(driveId: String?, query: String?, folder: String?): Sequence<Document> = sequence {
     var nextPageToken: String? = null
     do {
         val result =
@@ -154,8 +162,11 @@ private fun GSuite.fetchDocs(folder: String?): Sequence<Document> = sequence {
                     q =
                         listOfNotNull(
                             "mimeType = 'application/vnd.google-apps.document'",
+                            query?.let { "($it)" },
                             folder?.let { "'$it' in parents" },
                         ).joinToString(separator = " and ")
+
+                    driveId?.let { this.driveId = it }
 
                     pageSize = 10
                     pageToken = nextPageToken
@@ -189,6 +200,8 @@ private fun GSuite.fetchDocs(folder: String?): Sequence<Document> = sequence {
     } while (nextPageToken != null)
 }
 
-fun GSuite.fetchDocsAsFlow(folder: String?): Flow<Document> = channelFlow {
-    launch(Dispatchers.IO) { fetchDocs(folder).forEach { sendBlocking(it) } }
+fun GSuite.fetchDocsAsFlow(driveId: String?, query: String?, folder: String?): Flow<Document> = channelFlow {
+    launch(Dispatchers.IO) {
+        fetchDocs(driveId = driveId, query = query, folder = folder).forEach { send(it) }
+    }
 }

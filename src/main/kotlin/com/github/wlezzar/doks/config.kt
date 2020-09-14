@@ -5,15 +5,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.github.wlezzar.doks.search.ElasticEngine
 import com.github.wlezzar.doks.search.LuceneSearchEngine
 import com.github.wlezzar.doks.sources.FileSystemSource
-import com.github.wlezzar.doks.sources.GSuite
 import com.github.wlezzar.doks.sources.GithubRepoListSource
 import com.github.wlezzar.doks.sources.GithubSearchSource
 import com.github.wlezzar.doks.sources.GoogleDocs
 import com.github.wlezzar.doks.utils.json
 import com.github.wlezzar.doks.utils.toValue
 import com.github.wlezzar.doks.utils.yaml
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import org.apache.http.HttpHost
 import java.io.File
 import java.nio.file.Paths
@@ -38,11 +35,22 @@ sealed class SourceConfig {
     data class Github(
         val repositories: GithubRepositoriesConfig,
         val transport: String = "git",
+        val include: List<String> = listOf("""^.*\.md$"""),
+        val exclude: List<String> = emptyList()
     ) : SourceConfig()
 
-    data class FileSystem(val paths: List<String>) : SourceConfig()
+    data class FileSystem(
+        val paths: List<String>,
+        val include: List<String> = listOf("""^.*\.md$"""),
+        val exclude: List<String> = emptyList()
+    ) : SourceConfig()
 
-    data class GoogleDrive(val secretFile: String, val folders: List<String> = emptyList()) : SourceConfig()
+    data class GoogleDrive(
+        val secretFile: String,
+        val searchQuery: String?,
+        val driveId: String?,
+        val folders: List<String> = emptyList()
+    ) : SourceConfig()
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "from")
@@ -64,7 +72,13 @@ sealed class GithubRepositoriesConfig {
     ) : GithubRepositoriesConfig()
 }
 
-data class GithubRepo(val name: String, val folder: String? = null, val branch: String = "master")
+data class GithubRepo(
+    val name: String,
+    val folder: String? = null,
+    val branch: String = "master",
+    val include: List<String>? = null,
+    val exclude: List<String>? = null
+)
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "use")
 @JsonSubTypes(
@@ -96,8 +110,6 @@ fun Config.Companion.fromFile(file: File): Config {
         ?: throw IllegalArgumentException("file is empty: $file")
 }
 
-@FlowPreview
-@ExperimentalCoroutinesApi
 fun SourceConfig.resolve(): DocumentSource = when (this) {
     is SourceConfig.Github -> when (repositories) {
         is GithubRepositoriesConfig.FromList ->
@@ -110,6 +122,8 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
                         transport = transport,
                         server = repositories.server,
                         branch = it.branch,
+                        include = (it.include ?: include).map(::Regex),
+                        exclude = (it.exclude ?: exclude).map(::Regex),
                     )
                 }
                 .let(::GithubRepoListSource)
@@ -120,11 +134,19 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
             transport = transport,
             endpoint = repositories.endpoint,
             tokenFile = repositories.tokenFile,
+            include = include.map(::Regex),
+            exclude = exclude.map(::Regex),
         )
     }
-    is SourceConfig.FileSystem -> FileSystemSource(paths = paths.map(Paths::get))
+    is SourceConfig.FileSystem -> FileSystemSource(
+        paths = paths.map(Paths::get),
+        include = include.map(::Regex),
+        exclude = exclude.map(::Regex),
+    )
     is SourceConfig.GoogleDrive -> GoogleDocs(
-        gSuite = GSuite(secretFile = File(secretFile), userId = "doks"),
+        secretFile = File(secretFile),
+        searchQuery = searchQuery,
+        driveId = driveId,
         folders = folders
     )
 }

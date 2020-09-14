@@ -26,6 +26,8 @@ private val logger = LoggerFactory.getLogger(GithubSource::class.java)
 
 class GithubSource(
     private val repository: String,
+    private val include: List<Regex>,
+    private val exclude: List<Regex>,
     private val folder: String? = null,
     private val transport: String = "git",
     private val server: String = "github.mpi-internal.com",
@@ -52,7 +54,9 @@ class GithubSource(
 
                 Files
                     .walk(folder?.let { tmpClone.resolve(folder) } ?: tmpClone)
-                    .filter { "$it".endsWith(".md") }
+                    .filter { path ->
+                        include.all { "$path".matches(it) } && exclude.none { "$path".matches(it) }
+                    }
                     .map {
                         val relativePath = tmpClone.relativize(it)
                         Document(
@@ -81,6 +85,8 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
 
     data class Repository(
         val repository: String,
+        val include: List<Regex>,
+        val exclude: List<Regex>,
         val folder: String? = null,
         val transport: String = "git",
         val server: String = "github.mpi-internal.com",
@@ -93,6 +99,8 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
             .map {
                 GithubSource(
                     repository = it.repository,
+                    include = it.include,
+                    exclude = it.exclude,
                     folder = it.folder,
                     transport = it.transport,
                     server = it.server,
@@ -104,6 +112,8 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
 }
 
 class GithubSearchSource(
+    private val include: List<Regex>,
+    private val exclude: List<Regex>,
     private val starredBy: List<String>?,
     private val search: String?,
     private val transport: String,
@@ -136,6 +146,8 @@ class GithubSearchSource(
                 for (starred in github.getUser(user).listStarredRepositories()) {
                     send(
                         GithubSource(
+                            include = include,
+                            exclude = exclude,
                             repository = starred.fullName,
                             transport = transport,
                             server = URI(starred.gitTransportUrl).host,
@@ -152,6 +164,8 @@ class GithubSearchSource(
             for (repo in github.searchRepositories().q(q).list()) {
                 send(
                     GithubSource(
+                        include = include,
+                        exclude = exclude,
                         repository = repo.fullName,
                         transport = transport,
                         server = repo.url.host,
