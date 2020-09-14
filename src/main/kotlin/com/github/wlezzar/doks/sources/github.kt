@@ -5,13 +5,9 @@ import com.github.wlezzar.doks.DocumentSource
 import com.github.wlezzar.doks.DocumentType
 import com.github.wlezzar.doks.utils.useTemporaryDirectory
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -26,10 +22,8 @@ import java.net.URI
 import java.nio.file.Files
 import kotlin.streams.asSequence
 
-@ExperimentalCoroutinesApi
 private val logger = LoggerFactory.getLogger(GithubSource::class.java)
 
-@ExperimentalCoroutinesApi
 class GithubSource(
     private val repository: String,
     private val folder: String? = null,
@@ -83,8 +77,6 @@ class GithubSource(
     companion object
 }
 
-@FlowPreview
-@ExperimentalCoroutinesApi
 class GithubRepoListSource(private val repositories: List<Repository>) : DocumentSource {
 
     data class Repository(
@@ -111,8 +103,6 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
 
 }
 
-@FlowPreview
-@ExperimentalCoroutinesApi
 class GithubSearchSource(
     private val starredBy: List<String>?,
     private val search: String?,

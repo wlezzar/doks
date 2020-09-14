@@ -4,14 +4,12 @@ import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
 import com.github.wlezzar.doks.DocumentType
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import java.nio.file.Files
 import java.nio.file.Path
 
-@ExperimentalCoroutinesApi
 class FileSystemSource(
     private val paths: List<Path>,
     private val filter: (Path) -> Boolean = { "$it".endsWith(".md") }

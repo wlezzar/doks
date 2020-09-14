@@ -104,6 +104,10 @@ tasks {
     withType<KotlinCompile> {
         kotlinOptions {
             jvmTarget = "11"
+            freeCompilerArgs = listOf(
+                "-Xopt-in=kotlinx.coroutines.FlowPreview",
+                "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
+            )
             javaParameters = true
         }
     }

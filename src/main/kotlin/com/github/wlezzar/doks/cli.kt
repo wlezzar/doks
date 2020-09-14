@@ -11,16 +11,12 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.wlezzar.doks.utils.jsonObject
 import com.github.wlezzar.doks.utils.toJsonNode
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
 /**
  * CLI implementation.
  */
-@FlowPreview
-@ExperimentalCoroutinesApi
 class Doks : NoOpCliktCommand(name = "doks") {
     private val doksHome
         by option("--home", envvar = "DOKS_HOME", hidden = true)
@@ -47,8 +43,6 @@ class Doks : NoOpCliktCommand(name = "doks") {
         subcommands(Index(), Search(), Purge())
     }
 
-    @FlowPreview
-    @ExperimentalCoroutinesApi
     inner class Index : CliktCommand(name = "index", help = "index all documentation sources into the search engine") {
         override fun run() = this@Doks.useSearch { search ->
             this@Doks.config.sources.asSequence().forEach {

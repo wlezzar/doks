@@ -20,7 +20,6 @@ import com.google.api.services.docs.v1.model.StructuralElement
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.sendBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -34,7 +33,6 @@ import com.google.api.services.docs.v1.model.Document as GoogleDoc
 /**
  * Fetches documents from google drive.
  */
-@ExperimentalCoroutinesApi
 class GoogleDocs(private val gSuite: GSuite, private val folders: List<String>) : DocumentSource {
     override fun fetch(): Flow<Document> = folders.map { gSuite.fetchDocsAsFlow(folder = it) }.merge()
 }
@@ -191,7 +189,6 @@ private fun GSuite.fetchDocs(folder: String?): Sequence<Document> = sequence {
     } while (nextPageToken != null)
 }
 
-@ExperimentalCoroutinesApi
 fun GSuite.fetchDocsAsFlow(folder: String?): Flow<Document> = channelFlow {
     launch(Dispatchers.IO) { fetchDocs(folder).forEach { sendBlocking(it) } }
 }
