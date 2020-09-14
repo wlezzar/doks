@@ -36,7 +36,7 @@ Perform a search query:
 ❯ doks search 'aws kafka' | jq '.'
 ```
 
-The results are in json and would like the following:
+The results are in json and would look like the following:
 
 ```json
 [
