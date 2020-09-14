@@ -4,15 +4,20 @@ If you have documentation spread all over the place (github, google drive, etc.)
 
 Doks is a CLI tool that aggregates documents coming from multiple sources (github, google drive, etc.) into a search engine (Lucene is used by default for minumum local setup but elasticsearch can be used instead).
 
+## Install
+
+Installation procedure can be found at [docs/install.md](https://github.com/wlezzar/doks/blob/master/docs/install.md).
 ## Example usage
 
-Select a config file (by default: `$HOME/.doks/config.yml`):
+Select a config file to be used with `doks` (by default: `$HOME/.doks/config/default.yml`):
 
 ```bash
 ❯ export DOKS_CONFIG_FILE=examples/config.yml
 ```
 
-Index the documents referenced in the config file to make them searchable:
+Here we are using the example config file in [examples/config.yml](https://github.com/wlezzar/doks/blob/master/examples/config.yml).
+
+Next step is to index the documents referenced in the config file to make them searchable:
 
 ```bash
 ❯ doks index
@@ -25,7 +30,7 @@ Index the documents referenced in the config file to make them searchable:
 14:24:04 INFO  - [adevinta/zoe] 36 documents found!
 ```
 
-Make a search query:
+Perform a search query:
 
 ```bash
 ❯ doks search 'aws kafka' | jq '.'
@@ -47,15 +52,9 @@ The results are in json and would like the following:
     }
   },
   {
-    "link": "https://github.com/adevinta/zoe/blob/master/docs/advanced/runners/lambda.md",
-    "score": 3.4977975,
-    "matches": {
-      "content": [
-        "# Lambda runner\n\nThe lambda runner triggers lambda functions to read / produce to the <B>Kafka</B>",
-        " using CloudFormation (an S3 bucket, <B>AWS</B> roles, etc.). For more details on the resources deployed",
-        " into <B>AWS</B> and registering the lambda within <B>AWS</B>. Zoe jar path needs to be set and must point to a valid zoe"
-      ]
-    }
+    "link": "https://github.com/adevinta/zoe/blob/master/docs/advanced/runners/overview.md",
+    "score": 3.4900000,
+    ...
   }
 ]
 ```
@@ -84,49 +83,3 @@ The output would look like this:
 └────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴────────────┘
 ```
 
-## Install
-
-### Using brew (MacOs & Linux)
-
-Requires a JDK 11 or higher.
-
-```bash
-brew tap wlezzar/doks https://github.com/wlezzar/doks
-brew install wlezzar/doks/doks
-
-# use doks
-doks --help
-```
-
-### Using docker (All platforms)
-
-```bash
-docker run -i --rm wlezzar/doks:latest --help
-```
-
-To have a native like CLI experience, you can create an alias in your `~/.bashrc` or `~/.zshrc`:
-
-```bash
-alias doks='docker run -i --rm -v /tmp/.doks:/root/.doks wlezzar/doks:latest'
-
-doks --help
-```
-
-### Manual Tarball install (All platforms)
-
-Requires a JDK 11 or higher.
-
-```bash
-# Get the latest release version
-DOKS_VERSION=$(curl -s https://api.github.com/repos/wlezzar/doks/releases/latest | jq -r .tag_name)
-
-# Download the tar (or zip) package and unarchive it somewhere in your host (ex. /opt)
-wget -O /tmp/doks.zip https://github.com/wlezzar/doks/releases/download/${DOKS_VERSION}/doks.zip
-unzip /tmp/doks.zip -d /opt
-
-# Add doks in your path (add the following line to your ~/.bashrc or ~/.zshrc to make it permanent)
-export PATH="${PATH}:/opt/doks/bin"
-
-# Check that this is working
-doks --help
-```

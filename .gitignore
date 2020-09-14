@@ -11,9 +11,3 @@ draft.md
 .ipynb_checkpoints
 config.yml
 site
-
-zoe-cli/bin
-zoe-core/bin
-zoe-service/bin
-
-packages
