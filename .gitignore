@@ -9,5 +9,4 @@ build
 out
 draft.md
 .ipynb_checkpoints
-config.yml
 site

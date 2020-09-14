@@ -1,0 +1,16 @@
+sources:
+  - source: github
+    repositories:
+      from: list
+      list:
+        - name: wlezzar/jtab
+        - name: wlezzar/doks
+        - name: adevinta/zoe
+
+  ## Google drive documents source: scans google drive and uses scans google docs.
+  # - source: googleDrive
+  #   secretFile: /path/to/secret
+
+# Search engine to use (default is lucene)
+engine:
+  type: lucene
