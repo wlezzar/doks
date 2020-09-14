@@ -4,7 +4,7 @@ class Doks < Formula
   bottle :unneeded
   version "0.1.0"
   
-  url "https://github.com/wlezzar/doks/releases/download/0.1.0/jsql.zip"
+  url "https://github.com/wlezzar/doks/releases/download/0.1.0/doks.zip"
   sha256 ""
 
   def install
