@@ -1,7 +1,6 @@
 package com.github.wlezzar.doks.search
 
 import com.github.wlezzar.doks.Document
-import com.github.wlezzar.doks.DocumentType
 import com.github.wlezzar.doks.SearchEngine
 import com.github.wlezzar.doks.SearchResult
 import kotlinx.coroutines.CompletableDeferred
@@ -43,8 +42,9 @@ class ElasticEngine(
                         "id" to document.id,
                         "title" to document.title,
                         "link" to document.link,
-                        "type" to document.type.name,
-                        "content" to document.content
+                        "source" to document.source,
+                        "content" to document.content,
+                        "metadata" to document.metadata
                     )
                 ),
             RequestOptions.DEFAULT
@@ -68,11 +68,11 @@ class ElasticEngine(
                 SearchResult(
                     document = Document(
                         id = source.getValue("id") as String,
-                        type = source["type"]?.let { type -> DocumentType.valueOf(type as String) }
-                            ?: DocumentType.Unknown,
+                        source = source.getValue("source") as String,
                         title = source["title"]?.let { it as String } ?: "undefined",
                         link = source.getValue("link") as String,
-                        content = source.getValue("content") as String
+                        content = source.getValue("content") as String,
+                        metadata = source.getValue("metadata") as Map<String, String>
                     ),
                     score = hit.score,
                     matches = hit.highlightFields.mapValues { it.value.fragments.map(Text::string) }

@@ -2,7 +2,6 @@ package com.github.wlezzar.doks.sources
 
 import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
-import com.github.wlezzar.doks.DocumentType
 import com.github.wlezzar.doks.utils.useTemporaryDirectory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +23,11 @@ import kotlin.streams.asSequence
 
 private val logger = LoggerFactory.getLogger(GithubSource::class.java)
 
+/**
+ * Source that clones a repository and scans it for documents.
+ */
 class GithubSource(
+    private val sourceName: String,
     private val repository: String,
     private val include: List<Regex>,
     private val exclude: List<Regex>,
@@ -61,10 +64,11 @@ class GithubSource(
                         val relativePath = tmpClone.relativize(it)
                         Document(
                             id = "$repository/$relativePath",
-                            type = DocumentType.Markdown,
+                            source = sourceName,
                             title = "${it.fileName}",
                             link = "https://$server/$repository/blob/$branch/$relativePath",
-                            content = it.toFile().readText()
+                            content = it.toFile().readText(),
+                            metadata = mapOf("repository" to repository)
                         )
                     }
                     .asSequence()
@@ -81,7 +85,13 @@ class GithubSource(
     companion object
 }
 
-class GithubRepoListSource(private val repositories: List<Repository>) : DocumentSource {
+/**
+ * Source that takes a static list of github repositories and fetches documents from them.
+ */
+class GithubRepoListSource(
+    private val sourceId: String,
+    private val repositories: List<Repository>
+) : DocumentSource {
 
     data class Repository(
         val repository: String,
@@ -89,7 +99,7 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
         val exclude: List<Regex>,
         val folder: String? = null,
         val transport: String = "git",
-        val server: String = "github.mpi-internal.com",
+        val server: String = "github.com",
         val branch: String = "master",
     )
 
@@ -98,6 +108,7 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
             .asFlow()
             .map {
                 GithubSource(
+                    sourceName = sourceId,
                     repository = it.repository,
                     include = it.include,
                     exclude = it.exclude,
@@ -111,7 +122,11 @@ class GithubRepoListSource(private val repositories: List<Repository>) : Documen
 
 }
 
+/**
+ * Source that fetches a list of github repositories from a search request and scans them for documents.
+ */
 class GithubSearchSource(
+    private val sourceId: String,
     private val include: List<Regex>,
     private val exclude: List<Regex>,
     private val starredBy: List<String>?,
@@ -146,6 +161,7 @@ class GithubSearchSource(
                 for (starred in github.getUser(user).listStarredRepositories()) {
                     send(
                         GithubSource(
+                            sourceName = sourceId,
                             include = include,
                             exclude = exclude,
                             repository = starred.fullName,
@@ -164,6 +180,7 @@ class GithubSearchSource(
             for (repo in github.searchRepositories().q(q).list()) {
                 send(
                     GithubSource(
+                        sourceName = sourceId,
                         include = include,
                         exclude = exclude,
                         repository = repo.fullName,

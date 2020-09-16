@@ -33,6 +33,7 @@ data class Config(
 )
 sealed class SourceConfig {
     data class Github(
+        val id: String,
         val repositories: GithubRepositoriesConfig,
         val transport: String = "git",
         val include: List<String> = listOf("""^.*\.md$"""),
@@ -40,12 +41,14 @@ sealed class SourceConfig {
     ) : SourceConfig()
 
     data class FileSystem(
+        val id: String,
         val paths: List<String>,
         val include: List<String> = listOf("""^.*\.md$"""),
         val exclude: List<String> = emptyList()
     ) : SourceConfig()
 
     data class GoogleDrive(
+        val id: String,
         val secretFile: String,
         val searchQuery: String?,
         val driveId: String?,
@@ -113,9 +116,9 @@ fun Config.Companion.fromFile(file: File): Config {
 fun SourceConfig.resolve(): DocumentSource = when (this) {
     is SourceConfig.Github -> when (repositories) {
         is GithubRepositoriesConfig.FromList ->
-            repositories
-                .list
-                .map {
+            GithubRepoListSource(
+                sourceId = id,
+                repositories = repositories.list.map {
                     GithubRepoListSource.Repository(
                         repository = it.name,
                         folder = it.folder,
@@ -126,9 +129,10 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
                         exclude = (it.exclude ?: exclude).map(::Regex),
                     )
                 }
-                .let(::GithubRepoListSource)
+            )
 
         is GithubRepositoriesConfig.FromApi -> GithubSearchSource(
+            sourceId = id,
             starredBy = repositories.starredBy,
             search = repositories.search,
             transport = transport,
@@ -139,11 +143,13 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
         )
     }
     is SourceConfig.FileSystem -> FileSystemSource(
+        sourceId = id,
         paths = paths.map(Paths::get),
         include = include.map(::Regex),
         exclude = exclude.map(::Regex),
     )
     is SourceConfig.GoogleDrive -> GoogleDocs(
+        sourceId = id,
         secretFile = File(secretFile),
         searchQuery = searchQuery,
         driveId = driveId,

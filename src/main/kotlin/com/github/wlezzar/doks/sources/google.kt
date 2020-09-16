@@ -2,51 +2,96 @@ package com.github.wlezzar.doks.sources
 
 import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
-import com.github.wlezzar.doks.DocumentType
+import com.github.wlezzar.doks.utils.retryable
 import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.javanet.NetHttpTransport
-import com.google.api.client.json.JsonFactory
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
-import com.google.api.services.docs.v1.Docs
-import com.google.api.services.docs.v1.DocsScopes
-import com.google.api.services.docs.v1.model.ParagraphElement
-import com.google.api.services.docs.v1.model.StructuralElement
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.produceIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
-import com.google.api.services.docs.v1.model.Document as GoogleDoc
+import java.time.Duration
+import com.google.api.services.drive.model.File as DriveFile
+
+private val logger = LoggerFactory.getLogger(GoogleDocs::class.java)
 
 /**
  * Fetches documents from google drive.
  */
 class GoogleDocs(
+    private val sourceId: String,
     secretFile: File,
     private val searchQuery: String?,
     private val driveId: String?,
-    private val folders: List<String>
+    private val folders: List<String>?,
+    private val concurrency: Int = 4
 ) : DocumentSource {
 
-    private val gSuite = GSuite(secretFile = secretFile, userId = "doks")
+    private val tokensDirectoryPath = "/tmp/gsuite/tokens"
+    private val transport = GoogleNetHttpTransport.newTrustedTransport()
+    private val drive =
+        Drive
+            .Builder(
+                transport,
+                JacksonFactory.getDefaultInstance(),
+                authenticate(
+                    secret = secretFile,
+                    userId = "doks-drive6",
+                    tokensDirectoryPath = tokensDirectoryPath,
+                    scopes = listOf(DriveScopes.DRIVE_READONLY),
+                    transport = transport,
+                )
+            )
+            .setApplicationName("Doks")
+            .build()
 
-    override fun fetch(): Flow<Document> =
-        folders.map { gSuite.fetchDocsAsFlow(driveId = driveId, query = searchQuery, folder = it) }.merge()
+    override fun fetch(): Flow<Document> = channelFlow {
+        val files =
+            drive
+                .listFiles(driveId, searchQuery, folders, "files(id, name, mimeType, webViewLink)")
+                .produceIn(this)
+
+        repeat(times = concurrency) {
+            launch {
+                for (file in files) {
+                    when (file.mimeType) {
+
+                        in setOf("application/vnd.google-apps.document", "application/vnd.google-apps.presentation") ->
+                            send(
+                                Document(
+                                    id = file.id,
+                                    title = file.name,
+                                    source = sourceId,
+                                    link = file.webViewLink,
+                                    content = drive.export(file, "text/plain"),
+                                    metadata = mapOf("mimeType" to file.mimeType)
+                                )
+                            )
+
+                        else -> {
+                            logger.info("ignoring file: ${file.name} (type: ${file.mimeType})")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
-
-private val jsonFactory: JsonFactory = JacksonFactory.getDefaultInstance()
-private const val tokensDirectoryPath = "/tmp/gsuite/tokens"
 
 /**
  * Creates an authorized Credential object.
@@ -58,7 +103,9 @@ private fun authenticate(
     secret: File,
     userId: String,
     scopes: List<String>,
-    transport: NetHttpTransport
+    tokensDirectoryPath: String,
+    transport: NetHttpTransport,
+    jsonFactory: JacksonFactory = JacksonFactory.getDefaultInstance()
 ): Credential? {
     val clientSecrets =
         secret.inputStream().use { inp -> GoogleClientSecrets.load(jsonFactory, InputStreamReader(inp)) }
@@ -75,133 +122,53 @@ private fun authenticate(
     return AuthorizationCodeInstalledApp(flow, receiver).authorize(userId)
 }
 
-/**
- * Returns the text in the given ParagraphElement.
- *
- * @param element a ParagraphElement from a Google Doc
- */
-private fun readParagraphElement(element: ParagraphElement): String = element.textRun?.content ?: ""
-
-/**
- * Recurses through a list of Structural Elements to read a document's text where text may be in
- * nested elements.
- *
- * @param elements a list of Structural Elements
- */
-private fun readStructuralElements(elements: List<StructuralElement>): String = buildString {
-    for (element in elements) {
-        when {
-            element.paragraph != null -> {
-                for (paragraphElement in element.paragraph.elements) {
-                    append(readParagraphElement(paragraphElement))
-                }
-            }
-            element.table != null -> {
-                // The text in table cells are in nested Structural Elements and tables may be
-                // nested.
-                for (row in element.table.tableRows) {
-                    for (cell in row.tableCells) {
-                        append(readStructuralElements(cell.content))
-                    }
-                }
-            }
-            element.tableOfContents != null -> {
-                // The text in the TOC is also in a Structural Element.
-                append(readStructuralElements(element.tableOfContents.content))
-            }
-        }
-    }
-}
-
-private fun GoogleDoc.readContent(): String = readStructuralElements(body.content)
-
-class GSuite(val docs: Docs, val drive: Drive) {
-
-    constructor(
-        secretFile: File,
-        userId: String,
-        transport: NetHttpTransport = GoogleNetHttpTransport.newTrustedTransport()
-    ) : this(
-        drive = Drive
-            .Builder(
-                transport,
-                JacksonFactory.getDefaultInstance(),
-                authenticate(
-                    secret = secretFile,
-                    userId = "${userId}-drive",
-                    scopes = listOf(DriveScopes.DRIVE_METADATA_READONLY),
-                    transport = transport
-                )
-            )
-            .setApplicationName("Documentation indexer")
-            .build(),
-        docs = Docs
-            .Builder(
-                transport,
-                JacksonFactory.getDefaultInstance(),
-                authenticate(
-                    secret = secretFile,
-                    userId = "${userId}-docs",
-                    scopes = listOf(DocsScopes.DOCUMENTS_READONLY),
-                    transport = transport
-                )
-            )
-            .setApplicationName("Documentation indexer")
-            .build()
-    )
-}
-
-private fun GSuite.fetchDocs(driveId: String?, query: String?, folder: String?): Sequence<Document> = sequence {
+private fun Drive.listFiles(driveId: String?, query: String?, folders: List<String>?, fields: String?) = channelFlow {
     var nextPageToken: String? = null
     do {
-        val result =
-            drive
-                .files()
+        @Suppress("BlockingMethodInNonBlockingContext")
+        val result = withContext(Dispatchers.IO) {
+            files()
                 .list()
                 .apply {
-                    q =
-                        listOfNotNull(
-                            "mimeType = 'application/vnd.google-apps.document'",
-                            query?.let { "($it)" },
-                            folder?.let { "'$it' in parents" },
-                        ).joinToString(separator = " and ")
+                    q = listOfNotNull(
+                        query?.let { "($it)" },
+                        folders?.joinToString(separator = " or ", prefix = "(", postfix = ")") { "'$it' in parents" },
+                    ).joinToString(separator = " and ")
 
                     driveId?.let { this.driveId = it }
 
-                    pageSize = 10
-                    pageToken = nextPageToken
+                    this.fields = listOfNotNull("nextPageToken", fields).joinToString(separator = ", ")
+                    this.pageSize = 100
+                    this.pageToken = nextPageToken
                 }
                 .execute()
+        }
 
         nextPageToken = result.nextPageToken
 
-        result.files
-            ?.takeIf { it.isNotEmpty() }
-            ?.mapNotNull {
-                when (it.mimeType) {
-                    "application/vnd.google-apps.document" -> {
-                        val doc = docs.documents().get(it.id).execute()
-                        Document(
-                            id = doc.documentId,
-                            type = DocumentType.GoogleDoc,
-                            title = doc.title,
-                            link = "https://docs.google.com/document/d/${doc.documentId}",
-                            content = doc.readContent()
-                        )
-                    }
-                    else -> {
-                        // TODO: log unknown type
-                        null
-                    }
-                }
-            }
-            ?.forEach { yield(it) }
+        result.files?.forEach {
+            logger.debug("found: ${it.name} (id: ${it.id})")
+            send(it)
+        }
 
     } while (nextPageToken != null)
 }
 
-fun GSuite.fetchDocsAsFlow(driveId: String?, query: String?, folder: String?): Flow<Document> = channelFlow {
-    launch(Dispatchers.IO) {
-        fetchDocs(driveId = driveId, query = query, folder = folder).forEach { send(it) }
+@Suppress("BlockingMethodInNonBlockingContext")
+private suspend fun Drive.export(file: DriveFile, mimeType: String): String = retryable(
+    delayBetweenRetries = Duration.ofSeconds(3),
+    maxRetries = 10,
+    retryOn = { err ->
+        err is GoogleJsonResponseException && err.details?.errors?.any { it.reason == "userRateLimitExceeded" } == true
+    },
+    messageOnError = { _ -> "Drive rate limit exceeded" }
+) {
+    withContext(Dispatchers.IO) {
+        logger.debug("downloading content of file '${file.id}' as '$mimeType'")
+        files()
+            .export(file.id, mimeType)
+            .executeMediaAsInputStream()
+            .readBytes()
+            .toString(charset = Charsets.UTF_8)
     }
 }

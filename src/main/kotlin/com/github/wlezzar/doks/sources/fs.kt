@@ -2,7 +2,6 @@ package com.github.wlezzar.doks.sources
 
 import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
-import com.github.wlezzar.doks.DocumentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -11,6 +10,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class FileSystemSource(
+    private val sourceId: String,
     private val paths: List<Path>,
     private val include: List<Regex>,
     private val exclude: List<Regex>,
@@ -27,10 +27,11 @@ class FileSystemSource(
                     .map {
                         Document(
                             id = "$it",
-                            type = DocumentType.Markdown,
+                            source = sourceId,
                             title = "${it.fileName}",
                             link = "$it",
-                            content = it.toFile().readText()
+                            content = it.toFile().readText(),
+                            metadata = emptyMap(),
                         )
                     }
             }

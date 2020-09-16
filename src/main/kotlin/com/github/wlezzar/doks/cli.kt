@@ -13,11 +13,12 @@ import com.github.wlezzar.doks.utils.jsonObject
 import com.github.wlezzar.doks.utils.toJsonNode
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.util.logging.LogManager
 
 /**
  * CLI implementation.
  */
-class Doks : NoOpCliktCommand(name = "doks") {
+class Doks : CliktCommand(name = "doks") {
     private val doksHome
         by option("--home", envvar = "DOKS_HOME", hidden = true)
             .defaultLazy { "${System.getenv("HOME") ?: error("couldn't locate user home")}/.doks" }
@@ -68,6 +69,7 @@ class Doks : NoOpCliktCommand(name = "doks") {
                                 jsonObject {
                                     put("link", it.document.link)
                                     put("score", it.score)
+                                    put("title", it.document.title)
                                     set<JsonNode>("matches", it.matches.toJsonNode())
                                 }
                             }
@@ -75,5 +77,14 @@ class Doks : NoOpCliktCommand(name = "doks") {
                     )
             }
         }
+    }
+
+    override fun run() {
+//        LogManager.getRootLogger().level = when {
+//            silent -> Level.ERROR
+//            verbosity <= 1 -> Level.INFO
+//            verbosity == 2 -> Level.DEBUG
+//            else -> Level.ALL
+//        }
     }
 }

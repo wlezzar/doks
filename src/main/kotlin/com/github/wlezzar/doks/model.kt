@@ -3,16 +3,13 @@ package com.github.wlezzar.doks
 import kotlinx.coroutines.flow.Flow
 import java.io.Closeable
 
-enum class DocumentType {
-    GoogleDoc, GoogleSlide, Markdown, Unknown
-}
-
 data class Document(
     val id: String,
-    val type: DocumentType,
+    val source: String,
     val title: String,
     val link: String,
-    val content: String
+    val content: String,
+    val metadata: Map<String, String>
 )
 
 interface DocumentSource {
@@ -25,4 +22,9 @@ interface SearchEngine : Closeable {
     suspend fun index(documents: Flow<Document>)
     suspend fun search(query: String): List<SearchResult>
     suspend fun purge()
+}
+
+sealed class Filter {
+    data class Source(val value: String): Filter()
+    data class Title(val value: String): Filter()
 }

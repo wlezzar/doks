@@ -1,5 +1,6 @@
 sources:
-  - source: github
+  - id: github
+    source: github
     repositories:
       from: list
       list:
@@ -11,7 +12,8 @@ sources:
       #   - '^.*\.txt$'
 
   ## Google drive documents source: scans google drive and uses scans google docs.
-  # - source: googleDrive
+  # - id: "drive"
+  #   source: googleDrive
   #   secretFile: /path/to/secret
 
 # Search engine to use (default is lucene)

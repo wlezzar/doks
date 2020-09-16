@@ -1,6 +1,7 @@
 sources:
 
-  - source: github
+  - id: my_repos  # id of the source (may be used for filtering during search 'kafka aws and source:my_repos'
+    source: github
     ## By default, all markdown files are indexed (.md). You can choose what files to include instead
     # include:
     #   - '^.*\.txt$'
@@ -17,7 +18,8 @@ sources:
           exclude: ['^.*\.hello$']
         - name: adevinta/zoe
 
-  - source: github
+  - id: starred_kubernetes
+    source: github
     repositories:
       from: api
       # Override with your github enterprise v3 endpoint (default uses https://api.github.com)

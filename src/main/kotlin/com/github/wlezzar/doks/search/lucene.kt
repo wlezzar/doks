@@ -1,7 +1,7 @@
 package com.github.wlezzar.doks.search
 
 import com.github.wlezzar.doks.Document
-import com.github.wlezzar.doks.DocumentType
+import com.github.wlezzar.doks.Filter
 import com.github.wlezzar.doks.SearchEngine
 import com.github.wlezzar.doks.SearchResult
 import kotlinx.coroutines.CompletableDeferred
@@ -22,6 +22,7 @@ import org.apache.lucene.index.IndexWriterConfig
 import org.apache.lucene.index.IndexableField
 import org.apache.lucene.index.Term
 import org.apache.lucene.queryparser.classic.QueryParser
+import org.apache.lucene.search.BooleanQuery
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.Query
 import org.apache.lucene.search.highlight.Highlighter
@@ -46,17 +47,19 @@ class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAna
 
     private val indexingChannel = indexWriter.launchThread()
 
-    override suspend fun index(documents: Flow<Document>) = documents.collect { document ->
-        indexingChannel.index(
-            document.id,
-            listOf(
-                StringField("id", document.id, Field.Store.YES),
-                StringField("link", document.link, Field.Store.YES),
-                TextField("title", document.title, Field.Store.YES),
-                TextField("content", document.content, Field.Store.YES),
-                StringField("type", document.type.name, Field.Store.YES),
+    override suspend fun index(documents: Flow<Document>) {
+        documents.collect { document ->
+            indexingChannel.index(
+                document.id,
+                listOf(
+                    StringField("id", document.id, Field.Store.YES),
+                    StringField("link", document.link, Field.Store.YES),
+                    StringField("source", document.source, Field.Store.YES),
+                    TextField("title", document.title, Field.Store.YES),
+                    TextField("content", document.content, Field.Store.YES),
+                ) + document.metadata.map { StringField("metadata.${it.key}", it.value, Field.Store.YES) }
             )
-        )
+        }
     }
 
     override suspend fun search(query: String): List<SearchResult> = executor.submitSuspending {
@@ -70,9 +73,12 @@ class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAna
                 document = Document(
                     id = retrieved.getRequiredField("id").stringValue(),
                     title = retrieved.getRequiredField("title").stringValue(),
+                    source = retrieved.getRequiredField("source").stringValue(),
                     link = retrieved.getRequiredField("link").stringValue(),
                     content = retrieved.getRequiredField("content").stringValue(),
-                    type = DocumentType.valueOf(retrieved.getRequiredField("type").stringValue()),
+                    metadata = retrieved.fields
+                        .filter { it.name().startsWith("metadata.") }
+                        .associate { it.name().replace("metadata.", "") to it.stringValue() }
                 ),
                 score = doc.score,
                 matches = listOf("content").associateWith {
