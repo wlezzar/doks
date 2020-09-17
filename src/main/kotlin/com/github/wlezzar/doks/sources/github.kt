@@ -2,6 +2,7 @@ package com.github.wlezzar.doks.sources
 
 import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
+import com.github.wlezzar.doks.utils.retryable
 import com.github.wlezzar.doks.utils.useTemporaryDirectory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,8 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.net.URI
 import java.nio.file.Files
+import java.time.Duration
+import java.util.concurrent.RejectedExecutionException
 import kotlin.streams.asSequence
 
 private val logger = LoggerFactory.getLogger(GithubSource::class.java)
@@ -44,13 +47,20 @@ class GithubSource(
             useTemporaryDirectory(prefix = "doks") { tmpClone ->
                 val url = "$transport@$server:$repository.git"
                 // we need to limit the concurrency of the git clone command here as the library starts erroring
-                semaphore.withPermit {
-                    Git
-                        .cloneRepository()
-                        .setURI(url)
-                        .setDirectory(tmpClone.toFile())
-                        .also { logger.info("[$repository] cloning '${url}' into '$tmpClone'") }
-                        .call()
+                retryable(
+                    delayBetweenRetries = Duration.ofSeconds(3),
+                    retryOn = { exc -> exc is RejectedExecutionException },
+                    maxRetries = null,
+                    messageOnError = { "Repo cloning rate limiting exceeded" }
+                ) {
+                    semaphore.withPermit {
+                        Git
+                            .cloneRepository()
+                            .setURI(url)
+                            .setDirectory(tmpClone.toFile())
+                            .also { logger.info("[$repository] cloning '${url}' into '$tmpClone'") }
+                            .call()
+                    }
                 }
 
                 var counter = 0
@@ -118,7 +128,7 @@ class GithubRepoListSource(
                     branch = it.branch
                 )
             }
-            .flatMapMerge(concurrency = 16) { it.fetch() }
+            .flatMapMerge(concurrency = 4) { it.fetch() }
 
 }
 

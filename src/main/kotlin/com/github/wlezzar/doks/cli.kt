@@ -2,18 +2,20 @@ package com.github.wlezzar.doks
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.core.NoOpCliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.defaultLazy
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
+import com.github.wlezzar.doks.http.DoksServer
 import com.github.wlezzar.doks.utils.jsonObject
 import com.github.wlezzar.doks.utils.toJsonNode
+import io.vertx.core.Vertx
+import io.vertx.kotlin.core.deployVerticleAwait
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.io.File
-import java.util.logging.LogManager
 
 /**
  * CLI implementation.
@@ -41,7 +43,7 @@ class Doks : CliktCommand(name = "doks") {
     }
 
     init {
-        subcommands(Index(), Search(), Purge())
+        subcommands(Index(), Search(), Purge(), Serve())
     }
 
     inner class Index : CliktCommand(name = "index", help = "index all documentation sources into the search engine") {
@@ -77,6 +79,19 @@ class Doks : CliktCommand(name = "doks") {
                     )
             }
         }
+    }
+
+    inner class Serve : CliktCommand(name = "serve") {
+        override fun run(): Unit = this@Doks.useSearch { search ->
+            val vertx: Vertx = Vertx.vertx()
+            try {
+                vertx.deployVerticleAwait(DoksServer(search))
+                delay(Long.MAX_VALUE)
+            } finally {
+                vertx.close()
+            }
+        }
+
     }
 
     override fun run() {

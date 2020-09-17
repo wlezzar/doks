@@ -10,3 +10,4 @@ out
 draft.md
 .ipynb_checkpoints
 site
+src/main/react/.gitignore

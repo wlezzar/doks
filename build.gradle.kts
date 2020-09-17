@@ -17,6 +17,7 @@ plugins {
     application
 }
 
+val vertxVersion = "3.9.2"
 val gitVersion: groovy.lang.Closure<String> by extra
 
 group = "com.github.wlezzar"
@@ -55,10 +56,13 @@ dependencies {
 
     implementation("org.kohsuke:github-api:1.116")
 
-
     implementation("com.fasterxml.jackson.core:jackson-databind:2.11.2")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.11.2")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.2")
+
+    implementation("io.vertx:vertx-web:$vertxVersion")
+    implementation("io.vertx:vertx-lang-kotlin:$vertxVersion")
+    implementation("io.vertx:vertx-lang-kotlin-coroutines:$vertxVersion")
 
     implementation("com.github.ajalt.clikt:clikt:3.0.1")
     runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
