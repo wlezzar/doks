@@ -65,6 +65,7 @@ class ElasticEngine(
             .asSequence()
             .map { hit ->
                 val source = hit.sourceAsMap
+                @Suppress("UNCHECKED_CAST")
                 SearchResult(
                     document = Document(
                         id = source.getValue("id") as String,
