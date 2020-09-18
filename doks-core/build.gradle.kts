@@ -1,3 +1,4 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.net.URI
 
@@ -122,6 +123,15 @@ tasks {
             )
             javaParameters = true
         }
+    }
+
+    named<ShadowJar>("shadowJar") {
+        mergeServiceFiles()
+    }
+
+    // for older version of log4j2 to not complain about 'sun.reflect.Reflection.getCallerClass'
+    jar.configure {
+        manifest.attributes("Multi-Release" to true)
     }
 
     named<Zip>("shadowDistZip") { archiveFileName.set("${rootProject.name}.zip") }
