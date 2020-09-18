@@ -32,7 +32,7 @@ jobs:
       - name: Package
         id: package
         run: |
-          ./gradlew clean test shadowDistZip shadowDistTar
+          ./gradlew clean test doks-core:shadowDistZip doks-core:shadowDistTar
 
       - name: Upload zip package
         uses: actions/upload-release-asset@v1
@@ -40,7 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.fetch_release_data.outputs.upload_url }}
-          asset_path: build/distributions/doks.zip
+          asset_path: doks-core/build/distributions/doks.zip
           asset_name: doks.zip
           asset_content_type: application/zip
 
@@ -50,7 +50,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.fetch_release_data.outputs.upload_url }}
-          asset_path: build/distributions/doks.tar
+          asset_path: doks-core/build/distributions/doks.tar
           asset_name: doks.tar
           asset_content_type: application/zip
 

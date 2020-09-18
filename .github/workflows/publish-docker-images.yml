@@ -32,4 +32,4 @@ jobs:
 
       - name: publish zoe images
         run: |
-          ./gradlew test dockerPush
+          ./gradlew test doks-core:dockerPush
