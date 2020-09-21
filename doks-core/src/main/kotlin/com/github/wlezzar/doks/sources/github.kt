@@ -2,150 +2,147 @@ package com.github.wlezzar.doks.sources
 
 import com.github.wlezzar.doks.Document
 import com.github.wlezzar.doks.DocumentSource
+import com.github.wlezzar.doks.utils.Hasher
+import com.github.wlezzar.doks.utils.parseJson
 import com.github.wlezzar.doks.utils.retryable
-import com.github.wlezzar.doks.utils.useTemporaryDirectory
+import com.github.wlezzar.doks.utils.toJsonNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapMerge
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.kohsuke.github.GitHubBuilder
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.lang.System.currentTimeMillis
 import java.net.URI
+import java.net.URL
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.time.Duration
 import java.util.concurrent.RejectedExecutionException
-import kotlin.streams.asSequence
+import java.util.concurrent.atomic.AtomicInteger
 
 private val logger = LoggerFactory.getLogger(GithubSource::class.java)
 
 /**
- * Source that clones a repository and scans it for documents.
+ * Source that clones repositories and scans them for documents.
  */
 class GithubSource(
-    private val sourceName: String,
-    private val repository: String,
-    private val include: List<Regex>,
-    private val exclude: List<Regex>,
-    private val folder: String? = null,
-    private val transport: String = "git",
-    private val server: String = "github.mpi-internal.com",
-    private val branch: String = "master"
-) : DocumentSource {
-
-    private val semaphore = Semaphore(permits = 4)
-
-    override fun fetch(): Flow<Document> = channelFlow {
-        launch(Dispatchers.IO) {
-            useTemporaryDirectory(prefix = "doks") { tmpClone ->
-                val url = "$transport@$server:$repository.git"
-                // we need to limit the concurrency of the git clone command here as the library starts erroring
-                retryable(
-                    delayBetweenRetries = Duration.ofSeconds(3),
-                    retryOn = { exc -> exc is RejectedExecutionException },
-                    maxRetries = null,
-                    messageOnError = { "Repo cloning rate limiting exceeded" }
-                ) {
-                    semaphore.withPermit {
-                        Git
-                            .cloneRepository()
-                            .setURI(url)
-                            .setDirectory(tmpClone.toFile())
-                            .also { logger.info("[$repository] cloning '${url}' into '$tmpClone'") }
-                            .call()
-                    }
-                }
-
-                var counter = 0
-
-                Files
-                    .walk(folder?.let { tmpClone.resolve(folder) } ?: tmpClone)
-                    .filter { path ->
-                        include.all { "$path".matches(it) } && exclude.none { "$path".matches(it) }
-                    }
-                    .map {
-                        val relativePath = tmpClone.relativize(it)
-                        Document(
-                            id = "$repository/$relativePath",
-                            source = sourceName,
-                            title = "${it.fileName}",
-                            link = "https://$server/$repository/blob/$branch/$relativePath",
-                            content = it.toFile().readText(),
-                            metadata = mapOf("repository" to repository)
-                        )
-                    }
-                    .asSequence()
-                    .forEach {
-                        send(it)
-                        counter += 1
-                    }
-
-                logger.info("[$repository] $counter documents found!")
-            }
-        }
-    }
-
-    companion object
-}
-
-/**
- * Source that takes a static list of github repositories and fetches documents from them.
- */
-class GithubRepoListSource(
     private val sourceId: String,
-    private val repositories: List<Repository>
+    private val repositories: GitRepositoryLister,
+    private val concurrency: Int = 4
 ) : DocumentSource {
-
-    data class Repository(
-        val repository: String,
-        val include: List<Regex>,
-        val exclude: List<Regex>,
-        val folder: String? = null,
-        val transport: String = "git",
-        val server: String = "github.com",
-        val branch: String = "master",
-    )
 
     override fun fetch(): Flow<Document> =
-        repositories
-            .asFlow()
-            .map {
-                GithubSource(
-                    sourceName = sourceId,
-                    repository = it.repository,
-                    include = it.include,
-                    exclude = it.exclude,
-                    folder = it.folder,
-                    transport = it.transport,
-                    server = it.server,
-                    branch = it.branch
-                )
-            }
-            .flatMapMerge(concurrency = 4) { it.fetch() }
+        repositories.list().flatMapMerge(concurrency = concurrency) { repo -> extractDocuments(repo) }
 
+    private suspend fun extractDocuments(repository: GitRepository) = flow {
+        withRepositoryCloned(repository.url) { cloned ->
+            val counter = AtomicInteger(0)
+            emitAll(
+                listRecursively(repository.folder?.let { cloned.resolve(it) } ?: cloned)
+                    .filter { path ->
+                        repository.include.all { "$path".matches(it) } && repository.exclude.none { "$path".matches(it) }
+                    }
+                    .map {
+                        val relativePath = cloned.relativize(it)
+                        Document(
+                            id = "${repository.name}/$relativePath",
+                            source = sourceId,
+                            title = "${it.fileName}",
+                            link = "https://${repository.server}/${repository.name}/blob/${repository.branch}/$relativePath",
+                            content = it.toFile().readText(),
+                            metadata = mapOf("repository" to repository.name)
+                        )
+                    }
+                    .onEach { counter.incrementAndGet() }
+                    .onCompletion { logger.info("[${repository.name}] $counter documents found!") }
+            )
+        }
+    }
+}
+
+data class GitRepository(
+    val url: String,
+    val name: String,
+    val include: List<Regex>,
+    val exclude: List<Regex>,
+    val folder: String?,
+    val branch: String,
+    val server: String,
+)
+
+interface Hashable {
+    fun hash(): String
 }
 
 /**
- * Source that fetches a list of github repositories from a search request and scans them for documents.
+ * List git repositories
  */
-class GithubSearchSource(
-    private val sourceId: String,
+interface GitRepositoryLister {
+    fun list(): Flow<GitRepository>
+}
+
+@Suppress("BlockingMethodInNonBlockingContext")
+private suspend fun <T> withRepositoryCloned(url: String, action: suspend (Path) -> T): T {
+    val dest = Files.createTempDirectory("doks-repo-")
+    try {
+        withContext(Dispatchers.IO) {
+            retryable(
+                delayBetweenRetries = Duration.ofSeconds(3),
+                retryOn = { exc -> exc is RejectedExecutionException },
+                maxRetries = null,
+                messageOnError = { "Repo cloning rate limiting exceeded" }
+            ) {
+                Git
+                    .cloneRepository()
+                    .setURI(url)
+                    .setDirectory(dest.toFile())
+                    .also { logger.info("cloning '${url}' into '$dest'") }
+                    .call()
+            }
+        }
+
+        return action(dest)
+    } finally {
+        dest.toFile().deleteRecursively()
+    }
+}
+
+private fun listRecursively(path: Path): Flow<Path> = channelFlow {
+    launch(Dispatchers.IO) {
+        for (child in Files.walk(path)) {
+            send(child)
+        }
+    }
+}
+
+class StaticRepositoryLister(private val list: List<GitRepository>) : GitRepositoryLister {
+    override fun list(): Flow<GitRepository> = list.asFlow()
+}
+
+class GithubSearchLister(
     private val include: List<Regex>,
     private val exclude: List<Regex>,
     private val starredBy: List<String>?,
     private val search: String?,
     private val transport: String,
     private val endpoint: String?,
-    private val tokenFile: String?
-) : DocumentSource {
-
+    private val tokenFile: String?,
+) : GitRepositoryLister, Hashable {
     private val github =
         GitHubBuilder()
             .apply {
@@ -154,30 +151,28 @@ class GithubSearchSource(
             }
             .build()
 
-    override fun fetch(): Flow<Document> {
-
-        val sources =
-            listOfNotNull(
-                starredBy?.let(this::starredBy),
-                search?.let(this::search),
-            ).merge()
-
-        return sources.flatMapMerge(concurrency = 16) { it.fetch() }
+    override fun list(): Flow<GitRepository> {
+        return listOfNotNull(starredBy?.let(this::starredBy), search?.let(this::search)).merge()
     }
 
-    private fun starredBy(users: List<String>): Flow<GithubSource> = channelFlow {
+    private fun starredBy(users: List<String>): Flow<GitRepository> = channelFlow {
         launch(Dispatchers.IO) {
             for (user in users) {
+                logger.info("fetching repositories starred by: $user")
                 for (starred in github.getUser(user).listStarredRepositories()) {
                     send(
-                        GithubSource(
-                            sourceName = sourceId,
+                        GitRepository(
+                            url = when (transport) {
+                                "git" -> starred.gitTransportUrl
+                                "http" -> starred.httpTransportUrl
+                                else -> throw IllegalArgumentException("unknown transport mode: $transport")
+                            },
                             include = include,
                             exclude = exclude,
-                            repository = starred.fullName,
-                            transport = transport,
+                            name = starred.fullName,
                             server = URI(starred.gitTransportUrl).host,
-                            branch = starred.defaultBranch
+                            branch = starred.defaultBranch,
+                            folder = null
                         )
                     )
                 }
@@ -185,22 +180,62 @@ class GithubSearchSource(
         }
     }
 
-    private fun search(q: String): Flow<GithubSource> = channelFlow {
+    private fun search(q: String): Flow<GitRepository> = channelFlow {
         launch(Dispatchers.IO) {
+            logger.info("searching repositories with query: $q")
             for (repo in github.searchRepositories().q(q).list()) {
                 send(
-                    GithubSource(
-                        sourceName = sourceId,
+                    GitRepository(
+                        url = when (transport) {
+                            "git" -> repo.gitTransportUrl
+                            "http" -> repo.httpTransportUrl
+                            else -> throw IllegalArgumentException("unknown transport mode: $transport")
+                        },
                         include = include,
                         exclude = exclude,
-                        repository = repo.fullName,
-                        transport = transport,
-                        server = repo.url.host,
-                        branch = repo.defaultBranch
+                        name = repo.fullName,
+                        branch = repo.defaultBranch,
+                        server = URL(endpoint).host,
+                        folder = null
                     )
                 )
             }
         }
     }
 
+    override fun hash(): String = Hasher.hash(
+        *listOfNotNull(search, endpoint, tokenFile).toTypedArray(),
+        *(starredBy?.toTypedArray() ?: emptyArray()),
+    )
 }
+
+class GitRepositoryListerCache<T>(
+    private val cacheMaxDuration: Duration,
+    private val wrapped: T
+) : GitRepositoryLister
+    where T : GitRepositoryLister, T : Hashable {
+
+    private val tmpDir = System.getProperty("java.io.tmpdir")
+        ?: throw IllegalArgumentException("couldn't get temporary directory location")
+
+    private val cache = File("$tmpDir/doks/sources-cache/${wrapped.hash()}.txt")
+
+    override fun list(): Flow<GitRepository> = channelFlow {
+        launch(Dispatchers.IO) {
+            if (!cache.exists() || (cache.lastModified() + cacheMaxDuration.toMillis()) < currentTimeMillis()) {
+                logger.info("refreshing cache: ${cache.absolutePath}")
+                val tempCache = File("${cache.absolutePath}.tmp")
+                tempCache.parentFile.mkdirs()
+                tempCache.outputStream().bufferedWriter(Charsets.UTF_8).use { writer ->
+                    wrapped.list().collect { writer.appendLine(it.toJsonNode().toString()) }
+                }
+                Files.move(tempCache.toPath(), cache.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            cache.useLines { it.forEach { line -> send(line.parseJson()) } }
+        }
+    }
+}
+
+fun <T> T.cached(maxCacheDuration: Duration): GitRepositoryLister where T : GitRepositoryLister, T : Hashable =
+    GitRepositoryListerCache(maxCacheDuration, this)

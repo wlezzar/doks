@@ -15,6 +15,8 @@ import io.vertx.core.Vertx
 import io.vertx.kotlin.core.deployVerticleAwait
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.apache.logging.log4j.Level
+import org.apache.logging.log4j.LogManager
 import java.io.File
 
 /**

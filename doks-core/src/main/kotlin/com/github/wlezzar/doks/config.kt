@@ -5,15 +5,19 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.github.wlezzar.doks.search.ElasticEngine
 import com.github.wlezzar.doks.search.LuceneSearchEngine
 import com.github.wlezzar.doks.sources.FileSystemSource
-import com.github.wlezzar.doks.sources.GithubRepoListSource
-import com.github.wlezzar.doks.sources.GithubSearchSource
+import com.github.wlezzar.doks.sources.GitRepository
+import com.github.wlezzar.doks.sources.GithubSearchLister
+import com.github.wlezzar.doks.sources.GithubSource
 import com.github.wlezzar.doks.sources.GoogleDocs
+import com.github.wlezzar.doks.sources.StaticRepositoryLister
+import com.github.wlezzar.doks.sources.cached
 import com.github.wlezzar.doks.utils.json
 import com.github.wlezzar.doks.utils.toValue
 import com.github.wlezzar.doks.utils.yaml
 import org.apache.http.HttpHost
 import java.io.File
 import java.nio.file.Paths
+import java.time.Duration
 
 /**
  * Main application config model
@@ -114,34 +118,35 @@ fun Config.Companion.fromFile(file: File): Config {
 }
 
 fun SourceConfig.resolve(): DocumentSource = when (this) {
-    is SourceConfig.Github -> when (repositories) {
-        is GithubRepositoriesConfig.FromList ->
-            GithubRepoListSource(
-                sourceId = id,
-                repositories = repositories.list.map {
-                    GithubRepoListSource.Repository(
-                        repository = it.name,
-                        folder = it.folder,
-                        transport = transport,
-                        server = repositories.server,
-                        branch = it.branch,
-                        include = (it.include ?: include).map(::Regex),
-                        exclude = (it.exclude ?: exclude).map(::Regex),
-                    )
-                }
-            )
+    is SourceConfig.Github -> GithubSource(
+        sourceId = id,
+        repositories = when (repositories) {
+            is GithubRepositoriesConfig.FromList ->
+                StaticRepositoryLister(
+                    list = repositories.list.map {
+                        GitRepository(
+                            url = "$transport@${repositories.server}:${it.name}.git",
+                            name = it.name,
+                            folder = it.folder,
+                            branch = it.branch,
+                            include = (it.include ?: include).map(::Regex),
+                            exclude = (it.exclude ?: exclude).map(::Regex),
+                            server = repositories.server
+                        )
+                    }
+                )
 
-        is GithubRepositoriesConfig.FromApi -> GithubSearchSource(
-            sourceId = id,
-            starredBy = repositories.starredBy,
-            search = repositories.search,
-            transport = transport,
-            endpoint = repositories.endpoint,
-            tokenFile = repositories.tokenFile,
-            include = include.map(::Regex),
-            exclude = exclude.map(::Regex),
-        )
-    }
+            is GithubRepositoriesConfig.FromApi -> GithubSearchLister(
+                starredBy = repositories.starredBy,
+                search = repositories.search,
+                transport = transport,
+                endpoint = repositories.endpoint,
+                tokenFile = repositories.tokenFile,
+                include = include.map(::Regex),
+                exclude = exclude.map(::Regex),
+            ).cached(maxCacheDuration = Duration.ofMinutes(10))
+        }
+    )
     is SourceConfig.FileSystem -> FileSystemSource(
         sourceId = id,
         paths = paths.map(Paths::get),
