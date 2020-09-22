@@ -8,7 +8,7 @@ function App() {
   return (
     <div className="App">
       <Layout>
-        <Layout.Header className="header"><img className="logo" src="/logo.png" /></Layout.Header>
+        <Layout.Header className="header"><img className="logo" src="/logo.png" alt=""/></Layout.Header>
         <Layout.Content style={{backgroundColor: "white"}}>
           <SearchPage />
         </Layout.Content>
