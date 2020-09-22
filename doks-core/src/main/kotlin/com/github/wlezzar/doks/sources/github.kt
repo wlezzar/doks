@@ -5,6 +5,7 @@ import com.github.wlezzar.doks.DocumentSource
 import com.github.wlezzar.doks.utils.Hasher
 import com.github.wlezzar.doks.utils.parseJson
 import com.github.wlezzar.doks.utils.retryable
+import com.github.wlezzar.doks.utils.tmpDir
 import com.github.wlezzar.doks.utils.toJsonNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -30,8 +31,10 @@ import java.net.URI
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.time.Duration
+import java.util.*
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -43,7 +46,7 @@ private val logger = LoggerFactory.getLogger(GithubSource::class.java)
 class GithubSource(
     private val sourceId: String,
     private val repositories: GitRepositoryLister,
-    private val concurrency: Int = 4
+    private val concurrency: Int
 ) : DocumentSource {
 
     override fun fetch(): Flow<Document> =
@@ -52,25 +55,26 @@ class GithubSource(
     private suspend fun extractDocuments(repository: GitRepository) = flow {
         withRepositoryCloned(repository.url) { cloned ->
             val counter = AtomicInteger(0)
-            emitAll(
-                listRecursively(repository.folder?.let { cloned.resolve(it) } ?: cloned)
-                    .filter { path ->
-                        repository.include.all { "$path".matches(it) } && repository.exclude.none { "$path".matches(it) }
-                    }
-                    .map {
-                        val relativePath = cloned.relativize(it)
-                        Document(
-                            id = "${repository.name}/$relativePath",
-                            source = sourceId,
-                            title = "${it.fileName}",
-                            link = "https://${repository.server}/${repository.name}/blob/${repository.branch}/$relativePath",
-                            content = it.toFile().readText(),
-                            metadata = mapOf("repository" to repository.name)
-                        )
-                    }
-                    .onEach { counter.incrementAndGet() }
-                    .onCompletion { logger.info("[${repository.name}] $counter documents found!") }
-            )
+            val baseDir = repository.folder?.let { cloned.resolve(it) } ?: cloned
+            listRecursively(baseDir)
+                .filter { path ->
+                    repository.include.all { "$path".matches(it) } && repository.exclude.none { "$path".matches(it) }
+                }
+                .map {
+                    val relativePath = cloned.relativize(it)
+                    Document(
+                        id = "${repository.name}/$relativePath",
+                        source = sourceId,
+                        title = "${it.fileName}",
+                        link = "https://${repository.server}/${repository.name}/blob/${repository.branch}/$relativePath",
+                        content = it.toFile().readText(),
+                        metadata = mapOf("repository" to repository.name)
+                    )
+                }
+                .onEach { counter.incrementAndGet() }
+                .onCompletion { logger.info("[${repository.name}] $counter documents found!") }
+                .let { emitAll(it) }
+
         }
     }
 }
@@ -98,9 +102,10 @@ interface GitRepositoryLister {
 
 @Suppress("BlockingMethodInNonBlockingContext")
 private suspend fun <T> withRepositoryCloned(url: String, action: suspend (Path) -> T): T {
-    val dest = Files.createTempDirectory("doks-repo-")
+    val dest = Paths.get("$tmpDir/doks-repo-${UUID.randomUUID()}")
     try {
         withContext(Dispatchers.IO) {
+            Files.createDirectories(dest)
             retryable(
                 delayBetweenRetries = Duration.ofSeconds(3),
                 retryOn = { exc -> exc is RejectedExecutionException },
@@ -118,7 +123,9 @@ private suspend fun <T> withRepositoryCloned(url: String, action: suspend (Path)
 
         return action(dest)
     } finally {
-        dest.toFile().deleteRecursively()
+        withContext(Dispatchers.IO) {
+            dest.toFile().deleteRecursively()
+        }
     }
 }
 
@@ -214,9 +221,6 @@ class GitRepositoryListerCache<T>(
     private val wrapped: T
 ) : GitRepositoryLister
     where T : GitRepositoryLister, T : Hashable {
-
-    private val tmpDir = System.getProperty("java.io.tmpdir")
-        ?: throw IllegalArgumentException("couldn't get temporary directory location")
 
     private val cache = File("$tmpDir/doks/sources-cache/${wrapped.hash()}.txt")
 

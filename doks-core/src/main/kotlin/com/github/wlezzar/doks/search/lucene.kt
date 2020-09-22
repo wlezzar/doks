@@ -1,15 +1,16 @@
 package com.github.wlezzar.doks.search
 
 import com.github.wlezzar.doks.Document
-import com.github.wlezzar.doks.Filter
 import com.github.wlezzar.doks.SearchEngine
 import com.github.wlezzar.doks.SearchResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.analysis.en.EnglishAnalyzer
@@ -22,13 +23,14 @@ import org.apache.lucene.index.IndexWriterConfig
 import org.apache.lucene.index.IndexableField
 import org.apache.lucene.index.Term
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.BooleanQuery
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.Query
 import org.apache.lucene.search.highlight.Highlighter
 import org.apache.lucene.search.highlight.QueryScorer
 import org.apache.lucene.search.highlight.SimpleSpanFragmenter
 import org.apache.lucene.store.FSDirectory
+import org.slf4j.LoggerFactory
+import java.io.Closeable
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
@@ -36,6 +38,7 @@ import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import org.apache.lucene.document.Document as LuceneDocument
 
+private val logger = LoggerFactory.getLogger(LuceneSearchEngine::class.java)
 
 class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAnalyzer()) : SearchEngine {
 
@@ -45,20 +48,20 @@ class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAna
     private val indexReader = DirectoryReader.open(indexWriter)
     private val indexSearcher = IndexSearcher(indexReader)
 
-    private val indexingChannel = indexWriter.launchThread()
-
     override suspend fun index(documents: Flow<Document>) {
-        documents.collect { document ->
-            indexingChannel.index(
-                document.id,
-                listOf(
-                    StringField("id", document.id, Field.Store.YES),
-                    StringField("link", document.link, Field.Store.YES),
-                    StringField("source", document.source, Field.Store.YES),
-                    TextField("title", document.title, Field.Store.YES),
-                    TextField("content", document.content, Field.Store.YES),
-                ) + document.metadata.map { StringField("metadata.${it.key}", it.value, Field.Store.YES) }
-            )
+        indexWriter.launchThread().use {
+            documents.collect { document ->
+                it.index(
+                    document.id,
+                    listOf(
+                        StringField("id", document.id, Field.Store.YES),
+                        StringField("link", document.link, Field.Store.YES),
+                        StringField("source", document.source, Field.Store.YES),
+                        TextField("title", document.title, Field.Store.YES),
+                        TextField("content", document.content, Field.Store.YES),
+                    ) + document.metadata.map { StringField("metadata.${it.key}", it.value, Field.Store.YES) }
+                )
+            }
         }
     }
 
@@ -101,7 +104,6 @@ class LuceneSearchEngine(path: Path, private val analyzer: Analyzer = EnglishAna
     }
 
     override fun close() {
-        indexingChannel.close()
         indexWriter.close()
         executor.shutdown()
     }
@@ -123,22 +125,38 @@ data class IndexSuspendingRequest(val id: String, val doc: Iterable<IndexableFie
 
 fun IndexWriter.launchThread(): SendChannel<IndexSuspendingRequest> {
     val channel = Channel<IndexSuspendingRequest>()
+
+    @Suppress("BlockingMethodInNonBlockingContext")
     thread(name = "indexer") {
         runBlocking {
-            for (req in channel) {
-                try {
-                    req.completer.complete(
+            // committer coroutine
+            launch {
+                do {
+                    delay(5000)
+                    if (hasUncommittedChanges()) {
+                        logger.info("committing")
+                        commit()
+                    }
+                } while (!channel.isClosedForReceive)
+            }
+
+            // receiver coroutine
+            launch {
+                for (req in channel) {
+                    runCatching {
                         updateDocument(
                             Term("_id", req.id),
                             req.doc + StringField("_id", req.id, Field.Store.YES)
                         )
+                    }.fold(
+                        onSuccess = req.completer::complete,
+                        onFailure = req.completer::completeExceptionally
                     )
-                } catch (err: Exception) {
-                    req.completer.completeExceptionally(err)
                 }
             }
         }
     }
+
     return channel
 }
 
@@ -149,3 +167,7 @@ suspend fun SendChannel<IndexSuspendingRequest>.index(id: String, doc: Iterable<
 
 private suspend fun <T> ExecutorService.submitSuspending(action: () -> T): T =
     CompletableFuture.supplyAsync(action, this).await()
+
+private inline fun <T, R> SendChannel<T>.use(block: (SendChannel<T>) -> R): R =
+    Closeable { close() }.use { block(this) }
+

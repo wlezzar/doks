@@ -2,13 +2,14 @@ package com.github.wlezzar.doks
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonValue
 import com.github.wlezzar.doks.search.ElasticEngine
 import com.github.wlezzar.doks.search.LuceneSearchEngine
 import com.github.wlezzar.doks.sources.FileSystemSource
 import com.github.wlezzar.doks.sources.GitRepository
 import com.github.wlezzar.doks.sources.GithubSearchLister
 import com.github.wlezzar.doks.sources.GithubSource
-import com.github.wlezzar.doks.sources.GoogleDocs
+import com.github.wlezzar.doks.sources.GoogleDriveSource
 import com.github.wlezzar.doks.sources.StaticRepositoryLister
 import com.github.wlezzar.doks.sources.cached
 import com.github.wlezzar.doks.utils.json
@@ -29,6 +30,15 @@ data class Config(
     companion object
 }
 
+enum class GitCloneTransport(@JsonValue val code: String) { Ssh("ssh"), Http("http"), Https("https") }
+
+val GitCloneTransport.prefix
+    get() = when (this) {
+        GitCloneTransport.Ssh -> "git"
+        GitCloneTransport.Http -> "http"
+        GitCloneTransport.Https -> "https"
+    }
+
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "source")
 @JsonSubTypes(
     JsonSubTypes.Type(value = SourceConfig.Github::class, name = "github"),
@@ -39,9 +49,10 @@ sealed class SourceConfig {
     data class Github(
         val id: String,
         val repositories: GithubRepositoriesConfig,
-        val transport: String = "git",
+        val transport: GitCloneTransport = GitCloneTransport.Ssh,
         val include: List<String> = listOf("""^.*\.md$"""),
-        val exclude: List<String> = emptyList()
+        val exclude: List<String> = emptyList(),
+        val concurrency: Int = 2
     ) : SourceConfig()
 
     data class FileSystem(
@@ -56,7 +67,8 @@ sealed class SourceConfig {
         val secretFile: String,
         val searchQuery: String?,
         val driveId: String?,
-        val folders: List<String> = emptyList()
+        val folders: List<String> = emptyList(),
+        val concurrency: Int = 4
     ) : SourceConfig()
 }
 
@@ -120,12 +132,13 @@ fun Config.Companion.fromFile(file: File): Config {
 fun SourceConfig.resolve(): DocumentSource = when (this) {
     is SourceConfig.Github -> GithubSource(
         sourceId = id,
+        concurrency = concurrency,
         repositories = when (repositories) {
             is GithubRepositoriesConfig.FromList ->
                 StaticRepositoryLister(
                     list = repositories.list.map {
                         GitRepository(
-                            url = "$transport@${repositories.server}:${it.name}.git",
+                            url = "${transport.prefix}@${repositories.server}:${it.name}.git",
                             name = it.name,
                             folder = it.folder,
                             branch = it.branch,
@@ -139,7 +152,7 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
             is GithubRepositoriesConfig.FromApi -> GithubSearchLister(
                 starredBy = repositories.starredBy,
                 search = repositories.search,
-                transport = transport,
+                transport = transport.prefix,
                 endpoint = repositories.endpoint,
                 tokenFile = repositories.tokenFile,
                 include = include.map(::Regex),
@@ -147,18 +160,21 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
             ).cached(maxCacheDuration = Duration.ofMinutes(10))
         }
     )
+
     is SourceConfig.FileSystem -> FileSystemSource(
         sourceId = id,
         paths = paths.map(Paths::get),
         include = include.map(::Regex),
         exclude = exclude.map(::Regex),
     )
-    is SourceConfig.GoogleDrive -> GoogleDocs(
+
+    is SourceConfig.GoogleDrive -> GoogleDriveSource(
         sourceId = id,
         secretFile = File(secretFile),
         searchQuery = searchQuery,
         driveId = driveId,
-        folders = folders
+        folders = folders,
+        concurrency = concurrency
     )
 }
 

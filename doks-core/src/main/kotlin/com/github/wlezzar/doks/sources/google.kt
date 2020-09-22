@@ -28,12 +28,12 @@ import java.io.InputStreamReader
 import java.time.Duration
 import com.google.api.services.drive.model.File as DriveFile
 
-private val logger = LoggerFactory.getLogger(GoogleDocs::class.java)
+private val logger = LoggerFactory.getLogger(GoogleDriveSource::class.java)
 
 /**
  * Fetches documents from google drive.
  */
-class GoogleDocs(
+class GoogleDriveSource(
     private val sourceId: String,
     secretFile: File,
     private val searchQuery: String?,

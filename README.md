@@ -1,4 +1,4 @@
-# Doks
+![Logo](docs/img/logo.png)
 
 If you have documentation spread all over the place (github, google drive, etc.) and you want a centralized search tool over it, then `doks` is for you.
 
@@ -7,17 +7,22 @@ Doks is a CLI tool that aggregates documents coming from multiple sources (githu
 ## Install
 
 Installation procedure can be found at [docs/install.md](https://github.com/wlezzar/doks/blob/master/docs/install.md).
+
+## Documentation
+
+Documentation can be found in the [docs folder](https://github.com/wlezzar/doks/tree/master/docs).
+
 ## Example usage
 
 Select a config file to be used with `doks` (by default: `$HOME/.doks/config/default.yml`):
 
 ```bash
-❯ export DOKS_CONFIG_FILE=examples/config/simple.yml
+❯ export DOKS_CONFIG_FILE=docs/examples/config/simple.yml
 ```
 
-Here we are using a simple config file from [examples/config/simple.yml](https://github.com/wlezzar/doks/blob/master/examples/config/simple.yml).
+Here we are using a simple config file from [docs/examples/config/simple.yml](https://github.com/wlezzar/doks/blob/master/docs/examples/config/simple.yml). In practice, you don't need this export, you just need to put your config in the default expected path `$HOME/.doks/config/default.yml`.
 
-Next step is to index the documents referenced in the config file to make them searchable:
+The next step is to index the documents referenced in the config file to make them searchable:
 
 ```bash
 ❯ doks index
@@ -51,11 +56,7 @@ The results are in json and would look like the following:
       ]
     }
   },
-  {
-    "link": "https://github.com/adevinta/zoe/blob/master/docs/advanced/runners/overview.md",
-    "score": 3.4900000,
-    ...
-  }
+  ...
 ]
 ```
 
@@ -79,3 +80,13 @@ You can also use [jtab](https://github.com/wlezzar/jtab) to print the json resul
 └────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴────────────┘
 ```
 
+Doks also has a UI mode for CLI haters ;)
+
+```
+❯ doks serve
+23:16:10 INFO  - listening on port: 8888
+```
+
+You can now open your browser at: http://localhost:8888.
+
+![Main page](docs/img/main-page.png)

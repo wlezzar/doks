@@ -8,8 +8,8 @@ import SearchResultEntry from "../SerachResultEntry/SearchResultEntry"
 
 const SearchPage = () => {
 
-    // let doks = new Doks(window.location.origin)
-    let doks = new Doks("http://localhost:8888")
+    let doks = new Doks(window.location.origin)
+    // let doks = new Doks("http://localhost:8888")
 
     let [query, setQuery] = useState('')
     let [results, setResults] = useState<SearchResult[]>([])
@@ -43,7 +43,7 @@ const SearchPage = () => {
     }
 
     return (
-        <Page title="DOKS">
+        <Page>
             <h2>Search</h2>
             <Input placeholder="e.g Kafka AWS" value={query} onChange={handleChange} style={{ marginBottom: "1em" }} />
             <Async isLoading={loading} error={error}>
