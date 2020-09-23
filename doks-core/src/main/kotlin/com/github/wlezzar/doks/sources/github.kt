@@ -141,12 +141,14 @@ class StaticRepositoryLister(private val list: List<GitRepository>) : GitReposit
     override fun list(): Flow<GitRepository> = list.asFlow()
 }
 
+enum class GitCloneTransport { Ssh, Https }
+
 class GithubSearchLister(
     private val include: List<Regex>,
     private val exclude: List<Regex>,
     private val starredBy: List<String>?,
     private val search: String?,
-    private val transport: String,
+    private val transport: GitCloneTransport,
     private val endpoint: String?,
     private val tokenFile: String?,
 ) : GitRepositoryLister, Hashable {
@@ -170,9 +172,8 @@ class GithubSearchLister(
                     send(
                         GitRepository(
                             url = when (transport) {
-                                "git" -> starred.gitTransportUrl
-                                "http" -> starred.httpTransportUrl
-                                else -> throw IllegalArgumentException("unknown transport mode: $transport")
+                                GitCloneTransport.Ssh -> starred.gitTransportUrl
+                                GitCloneTransport.Https -> starred.httpTransportUrl
                             },
                             include = include,
                             exclude = exclude,
@@ -194,9 +195,8 @@ class GithubSearchLister(
                 send(
                     GitRepository(
                         url = when (transport) {
-                            "git" -> repo.gitTransportUrl
-                            "http" -> repo.httpTransportUrl
-                            else -> throw IllegalArgumentException("unknown transport mode: $transport")
+                            GitCloneTransport.Ssh -> repo.gitTransportUrl
+                            GitCloneTransport.Https -> repo.httpTransportUrl
                         },
                         include = include,
                         exclude = exclude,

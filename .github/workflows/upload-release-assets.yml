@@ -54,3 +54,24 @@ jobs:
           asset_name: doks.tar
           asset_content_type: application/zip
 
+
+  update-brew-formula:
+    name: Update brew formula
+    needs: publish-packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: fwilhe2/setup-kotlin@main
+
+      - run: |
+          VERSION=${GITHUB_REF/refs\/tags\//}
+          dev/scripts/helper.main.kts -- formula \
+            --version ${VERSION} \
+            --url https://github.com/wlezzar/doks/releases/download/${VERSION}/doks.zip \
+          > Formula/doks.rb
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: [Auto] Update brew formula
+          file_pattern: Formula/*.rb

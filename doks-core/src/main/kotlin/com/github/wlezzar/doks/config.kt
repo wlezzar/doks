@@ -19,6 +19,7 @@ import org.apache.http.HttpHost
 import java.io.File
 import java.nio.file.Paths
 import java.time.Duration
+import com.github.wlezzar.doks.sources.GitCloneTransport as DomainGitCloneTransport
 
 /**
  * Main application config model
@@ -30,14 +31,12 @@ data class Config(
     companion object
 }
 
-enum class GitCloneTransport(@JsonValue val code: String) { Ssh("ssh"), Http("http"), Https("https") }
+enum class GitCloneTransport(@JsonValue val code: String) { Ssh("ssh"), Https("https") }
 
-val GitCloneTransport.prefix
-    get() = when (this) {
-        GitCloneTransport.Ssh -> "git"
-        GitCloneTransport.Http -> "http"
-        GitCloneTransport.Https -> "https"
-    }
+fun GitCloneTransport.toDomain(): DomainGitCloneTransport = when (this) {
+    GitCloneTransport.Ssh -> DomainGitCloneTransport.Ssh
+    GitCloneTransport.Https -> DomainGitCloneTransport.Https
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "source")
 @JsonSubTypes(
@@ -138,7 +137,10 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
                 StaticRepositoryLister(
                     list = repositories.list.map {
                         GitRepository(
-                            url = "${transport.prefix}@${repositories.server}:${it.name}.git",
+                            url = when (transport) {
+                                GitCloneTransport.Ssh -> "git@${repositories.server}:${it.name}.git"
+                                GitCloneTransport.Https -> "https://${repositories.server}/${it.name}.git"
+                            },
                             name = it.name,
                             folder = it.folder,
                             branch = it.branch,
@@ -152,7 +154,7 @@ fun SourceConfig.resolve(): DocumentSource = when (this) {
             is GithubRepositoriesConfig.FromApi -> GithubSearchLister(
                 starredBy = repositories.starredBy,
                 search = repositories.search,
-                transport = transport.prefix,
+                transport = transport.toDomain(),
                 endpoint = repositories.endpoint,
                 tokenFile = repositories.tokenFile,
                 include = include.map(::Regex),
