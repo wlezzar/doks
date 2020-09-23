@@ -2,10 +2,10 @@ class Doks < Formula
   desc "Provides a simple search engine over your distributed documentation"
   homepage "https://github.com/wlezzar/doks"
   bottle :unneeded
-  version "0.6.0"
+  version "0.8.5"
   
-  url "https://github.com/wlezzar/doks/releases/download/0.6.0/doks.zip"
-  sha256 "3f4912a0c867ad4259b3331b5be9c905e1c2ab34f33c1f07d5ba7bdaf54709b6"
+  url "https://github.com/wlezzar/doks/releases/download/0.8.5/doks.zip"
+  sha256 "649dcda12e4368db8962a2233587d27c0f06d99a96e18da9c564b775eaccca12"
 
   def install
     bin.install "bin/doks"
