@@ -62,6 +62,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
       - uses: fwilhe2/setup-kotlin@main
 
       - run: |
@@ -74,5 +77,4 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "[auto] Update brew formula"
-          branch: master
           file_pattern: "Formula/*.rb"
