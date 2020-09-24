@@ -1,3 +1,4 @@
+# sources to fetch documents from
 sources:
   - id: github
     source: github
@@ -7,15 +8,7 @@ sources:
         - name: wlezzar/jtab
         - name: wlezzar/doks
         - name: adevinta/zoe
-      # By default, all markdown files are indexed (.md). You can choose what files to include instead
-      # include:
-      #   - '^.*\.txt$'
 
-  ## Google drive documents source: scans google drive and uses scans google docs.
-  # - id: "drive"
-  #   source: googleDrive
-  #   secretFile: /path/to/secret
-
-# Search engine to use (default is lucene)
+# Search engine to use
 engine:
   use: lucene

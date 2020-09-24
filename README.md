@@ -1,5 +1,7 @@
 ![Logo](docs/img/logo.png)
 
+![Build](https://github.com/wlezzar/doks/workflows/Build/badge.svg)
+
 If you have documentation spread all over the place (github, google drive, etc.) and you want a centralized search tool over it, then `doks` is for you.
 
 Doks is a CLI tool that aggregates documents coming from multiple sources (github, google drive, etc.) into a search engine (Lucene is used by default for minumum local setup but elasticsearch can be used instead).
@@ -10,7 +12,7 @@ Installation procedure can be found at [docs/install.md](https://github.com/wlez
 
 ## Documentation
 
-Documentation can be found in the [docs folder](https://github.com/wlezzar/doks/tree/master/docs).
+Documentation can be found in the [docs folder](https://github.com/wlezzar/doks/tree/master/docs/index.md).
 
 ## Example usage
 
@@ -90,3 +92,8 @@ Doks also has a UI mode for CLI haters ;)
 You can now open your browser at: http://localhost:8888.
 
 ![Main page](docs/img/main-page.png)
+
+## Status
+
+Doks is in its early stages. Bugs should be expected ;) . If you encounter some or need some help, do not hesitate to open a [github issue](https://github.com/wlezzar/doks/issues).
+ 
