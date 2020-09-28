@@ -172,7 +172,7 @@ class GithubSearchLister(
                     send(
                         GitRepository(
                             url = when (transport) {
-                                GitCloneTransport.Ssh -> starred.gitTransportUrl
+                                GitCloneTransport.Ssh -> starred.sshUrl
                                 GitCloneTransport.Https -> starred.httpTransportUrl
                             },
                             include = include,
@@ -195,7 +195,7 @@ class GithubSearchLister(
                 send(
                     GitRepository(
                         url = when (transport) {
-                            GitCloneTransport.Ssh -> repo.gitTransportUrl
+                            GitCloneTransport.Ssh -> repo.sshUrl
                             GitCloneTransport.Https -> repo.httpTransportUrl
                         },
                         include = include,
