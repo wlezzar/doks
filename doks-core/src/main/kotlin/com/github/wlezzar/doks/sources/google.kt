@@ -63,7 +63,13 @@ class GoogleDriveSource(
     override fun fetch(): Flow<Document> = channelFlow {
         val files =
             drive
-                .listFiles(driveId, searchQuery, folders, "files(id, name, mimeType, webViewLink)")
+                .listFiles(
+                    sourceName = sourceId,
+                    driveId = driveId,
+                    query = searchQuery,
+                    folders = folders,
+                    fields = "files(id, name, mimeType, webViewLink)"
+                )
                 .produceIn(this)
 
         repeat(times = concurrency) {
@@ -122,8 +128,16 @@ private fun authenticate(
     return AuthorizationCodeInstalledApp(flow, receiver).authorize(userId)
 }
 
-private fun Drive.listFiles(driveId: String?, query: String?, folders: List<String>?, fields: String?) = channelFlow {
+private fun Drive.listFiles(
+    sourceName: String,
+    driveId: String?,
+    query: String?,
+    folders: List<String>?,
+    fields: String?
+) = channelFlow {
     var nextPageToken: String? = null
+    var counter = 0
+
     do {
         @Suppress("BlockingMethodInNonBlockingContext")
         val result = withContext(Dispatchers.IO) {
@@ -148,10 +162,13 @@ private fun Drive.listFiles(driveId: String?, query: String?, folders: List<Stri
 
         result.files?.forEach {
             logger.debug("found: ${it.name} (id: ${it.id})")
+            counter += 1
             send(it)
         }
 
     } while (nextPageToken != null)
+
+    logger.info("[${sourceName}] $counter documents found!")
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
