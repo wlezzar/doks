@@ -77,3 +77,7 @@ sources:
       starredBy: 
         - wlezzar
 ```
+
+## Authentication on repository clone
+
+Currently, when cloning repositories with the github source, if an authentication is required, doks tries to use $HOME/.ssh/id_rsa. It is currently not possible to fallback to any other authentication mechanism. [An issue](https://github.com/wlezzar/doks/issues/1) is opened to fix this.

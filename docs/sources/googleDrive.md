@@ -15,3 +15,7 @@ sources:
       folders: [""]  # (optional) ids of the folders from which to scan for documents. By default: scans from the root
       concurrency: 4  # (optional) choose the concurrency of the indexing
 ```
+
+## Supported document types
+
+Currently, only Google Docs and Google Slides are supported. Other documents are ignored. More document types will be supported in the future.

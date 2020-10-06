@@ -4,7 +4,9 @@
 
 If you have documentation spread all over the place (github, google drive, etc.) and you want a centralized search tool over it, then `doks` is for you.
 
-Doks is a CLI tool that aggregates documents coming from multiple sources (github, google drive, etc.) into a search engine (Lucene is used by default for minumum local setup but elasticsearch can be used instead).
+Doks is a CLI tool that aggregates documents coming from multiple sources (github, google drive, etc.) into a search engine (Lucene is used by default for minimum local setup but elasticsearch can be used instead).
+
+![Doks big picture](docs/img/doks-prez.png)
 
 ## Install
 
@@ -12,7 +14,7 @@ Installation procedure can be found at [docs/install.md](https://github.com/wlez
 
 ## Documentation
 
-Documentation can be found in the [docs folder](https://github.com/wlezzar/doks/tree/master/docs/index.md).
+Documentation can be found in the [docs folder](https://github.com/wlezzar/doks/tree/master/docs/README.md).
 
 ## Example usage
 
