@@ -8,8 +8,8 @@ import SearchResultEntry from "../SerachResultEntry/SearchResultEntry"
 
 const SearchPage = () => {
 
-    let doks = new Doks(window.location.origin)
-    // let doks = new Doks("http://localhost:8888")
+    // let doks = new Doks(window.location.origin)
+    let doks = new Doks("http://localhost:8888")
 
     let [query, setQuery] = useState('')
     let [results, setResults] = useState<SearchResult[]>([])

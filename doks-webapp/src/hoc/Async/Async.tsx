@@ -8,7 +8,7 @@ interface AsyncProps {
     children: any
 }
 
-export default (props: AsyncProps) => {
+const Async = (props: AsyncProps) => {
     if (props.isLoading) return (
         <div className={classes.async}>
             <Spin size="large" />
@@ -24,3 +24,5 @@ export default (props: AsyncProps) => {
         return props.children
     }
 }
+
+export default Async

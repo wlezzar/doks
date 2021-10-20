@@ -85,7 +85,9 @@ tasks {
     }
 
     processResources.configure {
-        dependsOn(includeWebApp)
+        if (System.getenv("SKIP_UI_BUILD")?.toBoolean() != true) {
+            dependsOn(includeWebApp)
+        }
     }
 }
 

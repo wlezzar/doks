@@ -3,19 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.5.0",
-    "@testing-library/user-event": "^7.2.1",
-    "@types/jest": "^24.9.1",
-    "@types/node": "^12.12.59",
-    "@types/react": "^16.9.49",
-    "@types/react-dom": "^16.9.8",
-    "antd": "^4.6.4",
-    "lodash": "^4.17.20",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-scripts": "3.4.3",
-    "typescript": "^3.7.5"
+    "antd": "^4.16.13",
+    "lodash": "^4.17.21",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "4.0.3",
+    "showdown": "^1.9.1",
+    "styled-components": "^5.3.3",
+    "typescript": "^4.4.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -39,6 +34,15 @@
     ]
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.161"
+    "@testing-library/jest-dom": "^5.14.1",
+    "@testing-library/react": "^12.1.2",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.0.2",
+    "@types/lodash": "^4.14.175",
+    "@types/node": "^16.11.1",
+    "@types/react": "^17.0.30",
+    "@types/react-dom": "^17.0.9",
+    "@types/showdown": "^1.9.4",
+    "@types/styled-components": "^5.1.15"
   }
 }

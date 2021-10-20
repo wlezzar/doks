@@ -114,7 +114,7 @@ private fun LuceneDocument.fragments(fieldName: String, query: Query, analyzer: 
     val queryScorer = QueryScorer(query, fieldName)
     val tokenStream = field.tokenStream(analyzer, null)  // think about reuse here?
     return Highlighter(queryScorer)
-        .apply { textFragmenter = SimpleSpanFragmenter(queryScorer) }
+        .apply { textFragmenter = SimpleSpanFragmenter(queryScorer, 400) }
         .getBestFragments(tokenStream, field.stringValue(), numberOfFragments).toList()
 }
 
