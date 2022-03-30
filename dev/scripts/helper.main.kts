@@ -70,7 +70,6 @@ fun generateFormula(version: String, url: String, hash: String) = """
     |class Doks < Formula
     |  desc "Provides a simple search engine over your distributed documentation"
     |  homepage "https://github.com/wlezzar/doks"
-    |  bottle :unneeded
     |  version "$version"
     |  
     |  url "$url"
